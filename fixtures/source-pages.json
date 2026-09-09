@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "acme-orders.v1",
+  "pages": [
+    [
+      {
+        "id": "acme-100",
+        "order_number": " order-100 ",
+        "modified_at": "2026-08-20T10:00:00.000Z",
+        "customer": { "email": "ALICE@example.com" },
+        "total_cents": 2500,
+        "currency_code": "usd",
+        "status": "PAID"
+      },
+      {
+        "id": "acme-101",
+        "order_number": "order-101",
+        "modified_at": "2026-08-22T10:00:00.000Z",
+        "customer": { "email": "bob@example.com" },
+        "total_cents": 4200,
+        "currency_code": "USD",
+        "status": "paid"
+      }
+    ],
+    [
+      {
+        "id": "acme-101",
+        "order_number": "order-101",
+        "modified_at": "2026-08-22T10:00:00.000Z",
+        "customer": { "email": "bob@example.com" },
+        "total_cents": 4200,
+        "currency_code": "USD",
+        "status": "paid"
+      },
+      {
+        "id": "acme-102",
+        "order_number": "order-102",
+        "modified_at": "2026-08-18T09:00:00.000Z",
+        "customer": { "email": "late@example.com" },
+        "total_cents": 1750,
+        "currency_code": "USD",
+        "status": "open"
+      }
+    ],
+    [
+      {
+        "id": "acme-103",
+        "order_number": "order-103",
+        "modified_at": "2026-08-23T12:00:00.000Z",
+        "customer": { "email": "casey@example.com" },
+        "total_cents": 9900,
+        "currency_code": "USD",
+        "status": "paid"
+      },
+      {
+        "id": "acme-no-identity",
+        "order_number": null,
+        "modified_at": "2026-08-24T08:00:00.000Z",
+        "customer": { "email": "unknown@example.com" },
+        "total_cents": 500,
+        "currency_code": "USD",
+        "status": "open"
+      }
+    ]
+  ]
+}

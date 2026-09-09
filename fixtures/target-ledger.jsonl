@@ -1,0 +1,5 @@
+{"type":"schema","schemaVersion":"northstar-orders.v1"}
+{"sequence":1,"event_id":"evt-100","order":{"local_id":"north-100","external_ref":"ORDER-100","last_seen":"2026-08-20T10:00:00.000Z","buyer_email":"alice@example.com","amount":{"minor":2500},"currency":"USD","state":"paid"}}
+{"sequence":2,"event_id":"evt-101","order":{"local_id":"north-101","external_ref":"order-101","last_seen":"2026-08-21T10:00:00.000Z","buyer_email":"bob@example.com","amount":{"minor":4000},"currency":"USD","state":"paid"}}
+{"sequence":3,"event_id":"evt-103","order":{"local_id":"north-103","external_ref":"order-103","last_seen":"2026-08-23T12:00:00.000Z","buyer_email":"casey@example.com","amount":{"minor":9800},"currency":"USD","state":"paid"}}
+{"sequence":4,"event_id":"evt-104","order":{"local_id":"north-104","external_ref":"order-104","last_seen":"2026-08-25T14:00:00.000Z","buyer_email":"drew@example.com","amount":{"minor":3200},"currency":"USD","state":"open"}}
