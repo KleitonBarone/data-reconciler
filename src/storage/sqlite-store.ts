@@ -23,6 +23,7 @@ type CheckpointRow = {
   readonly adapter_version: string;
   readonly schema_version: string;
   readonly cursor: string | null;
+  readonly checkpoint_json?: unknown;
 };
 
 type JsonRow = { readonly json: string };
@@ -63,12 +64,22 @@ export class SqliteReconciliationStore {
         report_json TEXT NOT NULL
       ) STRICT;
     `);
+    const checkpointColumns = this.database
+      .prepare("PRAGMA table_info(checkpoints)")
+      .all();
+    if (!checkpointColumns.some((column) => column.name === "checkpoint_json"))
+      this.database.exec(
+        "ALTER TABLE checkpoints ADD COLUMN checkpoint_json TEXT",
+      );
+    this.database.exec(
+      "CREATE TABLE IF NOT EXISTS failures (id INTEGER PRIMARY KEY, error_json TEXT NOT NULL) STRICT",
+    );
   }
 
   getCheckpoint(adapterId: string): AdapterCheckpoint | null {
     const row: unknown = this.database
       .prepare(
-        `SELECT contract_version, adapter_version, schema_version, cursor
+        `SELECT contract_version, adapter_version, schema_version, cursor, checkpoint_json
          FROM checkpoints WHERE adapter_id = ?`,
       )
       .get(adapterId);
@@ -81,11 +92,27 @@ export class SqliteReconciliationStore {
         `Stored checkpoint for ${adapterId} uses unsupported contract version ${row.contract_version}`,
       );
     }
+    const extras =
+      typeof row.checkpoint_json === "string"
+        ? parseStoredJson(row.checkpoint_json)
+        : null;
     return {
       contractVersion: ADAPTER_CONTRACT_VERSION,
       adapterVersion: row.adapter_version,
       schemaVersion: row.schema_version,
       cursor: row.cursor,
+      ...(typeof extras === "object" &&
+      extras !== null &&
+      "datasetId" in extras &&
+      typeof extras.datasetId === "string"
+        ? { datasetId: extras.datasetId }
+        : {}),
+      ...(typeof extras === "object" &&
+      extras !== null &&
+      "prefixHash" in extras &&
+      typeof extras.prefixHash === "string"
+        ? { prefixHash: extras.prefixHash }
+        : {}),
     };
   }
 
@@ -121,6 +148,31 @@ export class SqliteReconciliationStore {
     return row.count;
   }
 
+  recordFailure(error: unknown): void {
+    const value =
+      error instanceof Error
+        ? {
+            name: error.name,
+            message: error.message,
+            ...("evidence" in error ? { evidence: error.evidence } : {}),
+          }
+        : { message: String(error) };
+    this.database
+      .prepare("INSERT INTO failures (error_json) VALUES (?)")
+      .run(JSON.stringify(value));
+  }
+
+  failures(): readonly unknown[] {
+    return this.database
+      .prepare("SELECT error_json FROM failures ORDER BY id")
+      .all()
+      .map((row) =>
+        typeof row.error_json === "string"
+          ? parseStoredJson(row.error_json)
+          : null,
+      );
+  }
+
   commitRun(input: CommitRunInput, hooks: CommitFaultHooks = {}): void {
     const upsertObservation = this.database.prepare(`
       INSERT INTO observations (
@@ -137,14 +189,15 @@ export class SqliteReconciliationStore {
     `);
     const upsertCheckpoint = this.database.prepare(`
       INSERT INTO checkpoints (
-        adapter_id, contract_version, adapter_version, schema_version, cursor, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?)
+        adapter_id, contract_version, adapter_version, schema_version, cursor, updated_at, checkpoint_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(adapter_id) DO UPDATE SET
         contract_version = excluded.contract_version,
         adapter_version = excluded.adapter_version,
         schema_version = excluded.schema_version,
         cursor = excluded.cursor,
         updated_at = excluded.updated_at
+        ,checkpoint_json = excluded.checkpoint_json
     `);
 
     this.database.exec("BEGIN IMMEDIATE");
@@ -175,6 +228,7 @@ export class SqliteReconciliationStore {
           checkpoint.schemaVersion,
           checkpoint.cursor,
           input.report.generatedAt,
+          JSON.stringify(checkpoint),
         );
       }
       this.database.exec("COMMIT");

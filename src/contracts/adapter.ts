@@ -10,6 +10,8 @@ export type AdapterDescriptor = {
   readonly contractVersion: typeof ADAPTER_CONTRACT_VERSION;
   readonly adapterVersion: string;
   readonly schemaVersion: string;
+  readonly datasetId?: string;
+  readonly readMode?: "snapshot" | "incremental";
 };
 
 export type AdapterCheckpoint = {
@@ -17,6 +19,8 @@ export type AdapterCheckpoint = {
   readonly adapterVersion: string;
   readonly schemaVersion: string;
   readonly cursor: string | null;
+  readonly datasetId?: string;
+  readonly prefixHash?: string;
 };
 
 export type IdentityCandidate = {

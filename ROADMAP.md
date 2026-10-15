@@ -117,18 +117,18 @@ Depends on A. Start here when product development resumes.
       mappings, and ignored fields explicit. Do not uppercase every arbitrary
       identifier. Support stable compound keys without ambiguous string
       concatenation.
-- [ ] B3. Validate nonempty local IDs, identity kinds, and normalized keys.
+- [x] B3. Validate nonempty local IDs, identity kinds, and normalized keys.
       Preserve malformed-record evidence in a failed run without advancing past
       an unrecorded page. Distinct local IDs claiming one key stay conflicting.
 - [x] B4. Specify record revision semantics. Collapse identical deliveries,
       ignore a proven older revision for current-state purposes while retaining
       its evidence, and report different values at an indistinguishable revision
       as a conflict. Arrival order alone cannot select a winner.
-- [ ] B5. Define snapshot, incremental-update, and tombstone semantics. An
+- [x] B5. Define snapshot, incremental-update, and tombstone semantics. An
       absent incremental event is not a deleted record. Missing classifications
       require a completed comparable read scope; an outage cannot make records
       look missing.
-- [ ] B6. Validate cursors and ledger sequence uniqueness and ordering. Detect
+- [x] B6. Validate cursors and ledger sequence uniqueness and ordering. Detect
       loops, backward progress, rewritten files, truncated files, and mismatched
       dataset generations. Make a full rescan an explicit operation.
 

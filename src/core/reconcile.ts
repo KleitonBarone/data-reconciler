@@ -27,6 +27,17 @@ export type ReconcileOptions = {
 export async function reconcileDryRun(
   options: ReconcileOptions,
 ): Promise<ReconciliationReport> {
+  try {
+    return await executeDryRun(options);
+  } catch (error) {
+    options.store.recordFailure(error);
+    throw error;
+  }
+}
+
+async function executeDryRun(
+  options: ReconcileOptions,
+): Promise<ReconciliationReport> {
   if (options.source.descriptor.id === options.target.descriptor.id) {
     throw new Error("Source and target adapters must have different IDs");
   }
@@ -124,6 +135,7 @@ async function readIncremental(
 ): Promise<IncrementalRead> {
   const records: AdapterRecord[] = [];
   let checkpoint = initialCheckpoint;
+  const seen = new Set<string>();
 
   for (;;) {
     const page = await adapter.readPage({ checkpoint, limit: pageSize });
@@ -131,11 +143,13 @@ async function readIncremental(
     if (!page.hasMore) {
       return { records, checkpoint: page.nextCheckpoint };
     }
-    if (page.nextCheckpoint.cursor === checkpoint?.cursor) {
+    const key = page.nextCheckpoint.cursor ?? "";
+    if (key === checkpoint?.cursor || seen.has(key)) {
       throw new Error(
         `${adapter.descriptor.id} returned hasMore without advancing its cursor`,
       );
     }
+    seen.add(key);
     checkpoint = page.nextCheckpoint;
   }
 }

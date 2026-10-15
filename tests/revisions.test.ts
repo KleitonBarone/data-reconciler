@@ -24,6 +24,42 @@ function snapshot(
   });
 }
 describe("record revisions", () => {
+  it.each(Array.from({ length: 16 }, (_, seed) => seed + 1))(
+    "is invariant under seeded delivery and page permutations, seed %s",
+    (seed) => {
+      const originals = Array.from({ length: 40 }, (_, index) =>
+        snapshot(
+          index % 3,
+          `2026-01-0${(index % 4) + 1}T00:00:00Z`,
+          `record-${index % 5}`,
+        ),
+      );
+      const expected = mergeObservations([], originals);
+      let state = seed;
+      const random = () => {
+        state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+        return state;
+      };
+      const shuffled = [...originals, ...originals.slice(0, 10)];
+      for (let index = shuffled.length - 1; index > 0; index--) {
+        const other = random() % (index + 1);
+        [shuffled[index], shuffled[other]] = [
+          shuffled[other]!,
+          shuffled[index]!,
+        ];
+      }
+      let current: ReturnType<typeof mergeObservations> = [];
+      for (let index = 0; index < shuffled.length;) {
+        const size = (random() % 7) + 1;
+        current = mergeObservations(
+          current,
+          shuffled.slice(index, index + size),
+        );
+        index += size;
+      }
+      expect(current).toEqual(expected);
+    },
+  );
   it("ignores a late stale update and collapses repeated delivery", () => {
     const current = snapshot(2);
     expect(

@@ -1,4 +1,8 @@
-import { readFile } from "node:fs/promises";
+import {
+  InputSnapshot,
+  prefixHashes,
+  validatePrefix,
+} from "./input-snapshot.js";
 import {
   ADAPTER_CONTRACT_VERSION,
   assertCheckpointCompatible,
@@ -26,17 +30,22 @@ type LedgerEntry = {
 /** Reads a Northstar append-only JSONL ledger through its sequence cursor. */
 export class JsonlLedgerCommerceAdapter implements ReadAdapter {
   readonly descriptor: AdapterDescriptor;
+  private readonly input: InputSnapshot;
+  private hashes: readonly string[] | undefined;
 
   constructor(
     private readonly filePath: string,
     options: { readonly id?: string; readonly schemaVersion?: string } = {},
   ) {
+    this.input = new InputSnapshot(filePath);
     this.descriptor = {
       id: options.id ?? "local-northstar-ledger",
       displayName: "Local Northstar JSONL ledger",
       contractVersion: ADAPTER_CONTRACT_VERSION,
       adapterVersion: "jsonl-ledger.v1",
       schemaVersion: options.schemaVersion ?? "northstar-orders.v1",
+      datasetId: this.input.datasetId,
+      readMode: "incremental",
     };
   }
 
@@ -46,7 +55,7 @@ export class JsonlLedgerCommerceAdapter implements ReadAdapter {
       throw new Error("Page limit must be a positive integer");
     }
 
-    const lines = (await readFile(this.filePath, "utf8"))
+    const lines = (await this.input.text())
       .split(/\r?\n/u)
       .map((line) => line.trim())
       .filter((line) => line !== "");
@@ -75,6 +84,30 @@ export class JsonlLedgerCommerceAdapter implements ReadAdapter {
         `${this.filePath}:${index + 2}`,
       ),
     }));
+    let previous = 0;
+    for (const entry of entries) {
+      const sequence = expectNumber(entry.value.sequence, "ledger sequence");
+      if (!Number.isSafeInteger(sequence) || sequence <= previous)
+        throw new Error(
+          "Ledger sequences must be unique positive integers in increasing order",
+        );
+      previous = sequence;
+    }
+    this.hashes ??= prefixHashes(entries.map((entry) => entry.value));
+    const offset = entries.filter(
+      (entry) =>
+        expectNumber(entry.value.sequence, "ledger sequence") <= afterSequence,
+    ).length;
+    if (
+      afterSequence !== 0 &&
+      !entries.some((entry) => entry.value.sequence === afterSequence)
+    )
+      throw new Error("Ledger checkpoint sequence no longer exists");
+    validatePrefix(
+      request.checkpoint,
+      this.input.datasetId,
+      this.hashes[offset],
+    );
     const unread = entries.filter(
       (entry) =>
         expectNumber(
@@ -94,7 +127,11 @@ export class JsonlLedgerCommerceAdapter implements ReadAdapter {
 
     return {
       records: selected.map((entry) => this.mapRecord(entry)),
-      nextCheckpoint: createCheckpoint(this.descriptor, String(nextSequence)),
+      nextCheckpoint: {
+        ...createCheckpoint(this.descriptor, String(nextSequence)),
+        datasetId: this.input.datasetId,
+        prefixHash: this.hashes[offset + selected.length] ?? "",
+      },
       hasMore: selected.length < unread.length,
     };
   }

@@ -172,9 +172,10 @@ database migration command or historical repair audit.
   Equal-time disagreements retain both versions as `conflicting_revision`.
   Tombstones produce `deleted_record` conflicts. Reports retain all deliveries
   read during a run, including stale evidence.
-- JSON offsets assume earlier records do not change; ledger reads assume
-  sequences are valid and increasing. Rewritten, reordered, or truncated inputs
-  are not handled as dataset changes.
+- Local file checkpoints verify the dataset path and a hash of the consumed
+  prefix. Rewrites, reordering, and truncation require an explicit rescan into a
+  new store. Ledger sequences must be unique increasing positive integers. Each
+  local file snapshot is limited to 32 MiB.
 - The engine loads all observations and new pages into memory. Checkpoints are
   committed after the complete run, not after individual pages.
 - Adapter IDs alone key state. Jobs, tenants, input generations, and concurrent

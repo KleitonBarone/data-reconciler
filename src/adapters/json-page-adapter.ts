@@ -1,4 +1,8 @@
-import { readFile } from "node:fs/promises";
+import {
+  InputSnapshot,
+  prefixHashes,
+  validatePrefix,
+} from "./input-snapshot.js";
 import {
   ADAPTER_CONTRACT_VERSION,
   assertCheckpointCompatible,
@@ -28,17 +32,22 @@ type PagedRecord = {
 /** Reads Acme-style JSON pages and maps them to the version 1 read contract. */
 export class JsonPageCommerceAdapter implements ReadAdapter {
   readonly descriptor: AdapterDescriptor;
+  private readonly input: InputSnapshot;
+  private hashes: readonly string[] | undefined;
 
   constructor(
     private readonly filePath: string,
     options: { readonly id?: string; readonly schemaVersion?: string } = {},
   ) {
+    this.input = new InputSnapshot(filePath);
     this.descriptor = {
       id: options.id ?? "local-acme-json",
       displayName: "Local Acme JSON pages",
       contractVersion: ADAPTER_CONTRACT_VERSION,
       adapterVersion: "json-pages.v1",
       schemaVersion: options.schemaVersion ?? "acme-orders.v1",
+      datasetId: this.input.datasetId,
+      readMode: "incremental",
     };
   }
 
@@ -47,7 +56,7 @@ export class JsonPageCommerceAdapter implements ReadAdapter {
     assertCheckpointCompatible(this.descriptor, request.checkpoint);
 
     const document = expectObject(
-      parseJson(await readFile(this.filePath, "utf8"), this.filePath),
+      parseJson(await this.input.text(), this.filePath),
       this.filePath,
     );
     const schemaVersion = expectString(
@@ -76,12 +85,22 @@ export class JsonPageCommerceAdapter implements ReadAdapter {
       ),
     );
     const offset = parseCursor(request.checkpoint?.cursor);
+    this.hashes ??= prefixHashes(flattened.map((entry) => entry.value));
+    validatePrefix(
+      request.checkpoint,
+      this.input.datasetId,
+      this.hashes[offset],
+    );
     const selected = flattened.slice(offset, offset + request.limit);
     const nextOffset = offset + selected.length;
 
     return {
       records: selected.map((entry) => this.mapRecord(entry)),
-      nextCheckpoint: createCheckpoint(this.descriptor, String(nextOffset)),
+      nextCheckpoint: {
+        ...createCheckpoint(this.descriptor, String(nextOffset)),
+        datasetId: this.input.datasetId,
+        prefixHash: this.hashes[nextOffset] ?? "",
+      },
       hasMore: nextOffset < flattened.length,
     };
   }
