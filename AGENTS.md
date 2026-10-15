@@ -7,7 +7,8 @@ responsibilities are identity, normalization, checkpoints, conflict handling,
 replay, and auditability.
 
 Read `README.md` and `ROADMAP.md` before changing scope. Milestones 0 and 1 are
-implemented. Never describe roadmap work as implemented.
+implemented as a local dry-run prototype. Follow phases A through H in the
+completion plan. Never describe unchecked roadmap work as implemented.
 
 ## Product rules
 
@@ -35,19 +36,25 @@ stores checkpoints, observations, and dry-run reports.
 
 Run the full local check with `pnpm check`. Its individual commands are
 `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and
-`pnpm build`. Use `pnpm format` to write formatting changes.
+`pnpm test:e2e`. The end-to-end command builds before running the compiled CLI.
+Use `pnpm test:watch` for the short integration loop and `pnpm format` to write
+formatting changes. See `CONTRIBUTING.md` for the complete workflow.
 
 Current tests cover checkpoint crashes, duplicate pages, late records, missing
 identifiers, conflicting updates, incompatible schema versions, evidence
-retention, and dry-run immutability. Add partial repair failure, replay, and
-repair idempotency tests when milestone 2 introduces writes. Prefer generated
-fixtures that exercise ordering and duplication.
+retention, and dry-run immutability. The compiled CLI scenarios also prove
+restart, persisted reports, input immutability, and failed-read rollback. The
+existing checkpoint crash test throws inside a transaction; actual process
+termination and repair recovery are separate roadmap gates. Prefer seeded
+generated fixtures that exercise ordering and duplication.
 
 Any test that applies repairs must target disposable data and prove that a
 second identical run makes no further changes.
 
 ## Documentation boundaries
 
-Keep human setup, adapter contracts, diff examples, and safety guarantees in
-`README.md`. Keep agent operating rules here. Update `ROADMAP.md` when milestone
-scope changes.
+Keep discovery, maturity, and the shortest working example in `README.md`.
+Detailed current contracts, diff examples, and limitations belong in
+`docs/current-behavior.md`; contributor commands belong in `CONTRIBUTING.md`.
+Keep agent operating rules here. Update `ROADMAP.md` when milestone scope or
+acceptance gates change.
