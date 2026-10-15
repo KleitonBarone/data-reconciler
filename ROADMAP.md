@@ -120,7 +120,7 @@ Depends on A. Start here when product development resumes.
 - [ ] B3. Validate nonempty local IDs, identity kinds, and normalized keys.
       Preserve malformed-record evidence in a failed run without advancing past
       an unrecorded page. Distinct local IDs claiming one key stay conflicting.
-- [ ] B4. Specify record revision semantics. Collapse identical deliveries,
+- [x] B4. Specify record revision semantics. Collapse identical deliveries,
       ignore a proven older revision for current-state purposes while retaining
       its evidence, and report different values at an indistinguishable revision
       as a conflict. Arrival order alone cannot select a winner.

@@ -168,9 +168,10 @@ database migration command or historical repair audit.
 - Boolean comparable values retain their JSON type, including in nested objects
   and arrays. Other validation and configurable normalization work is tracked in
   phase B.
-- Delivery order selects the current observation when the same local ID arrives
-  with different values. Stale or indistinguishable revisions need an explicit
-  policy before arbitrary adapters are safe.
+- Newer timestamps supersede older observations with the same local ID.
+  Equal-time disagreements retain both versions as `conflicting_revision`.
+  Tombstones produce `deleted_record` conflicts. Reports retain all deliveries
+  read during a run, including stale evidence.
 - JSON offsets assume earlier records do not change; ledger reads assume
   sequences are valid and increasing. Rewritten, reordered, or truncated inputs
   are not handled as dataset changes.

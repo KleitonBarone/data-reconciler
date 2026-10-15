@@ -49,6 +49,7 @@ export function normalizeRecord(
     comparable: normalizeObject(record.comparable, policy, ""),
     evidence: record.evidence,
     normalizationVersion: policy.version,
+    ...(record.deleted ? { deleted: true } : {}),
   };
 }
 

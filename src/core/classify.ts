@@ -75,6 +75,25 @@ function classifyIdentity(
   source: readonly RecordSnapshot[],
   target: readonly RecordSnapshot[],
 ): ReconciliationResult {
+  const revisions = [...source, ...target].some(
+    (record) => record.revisionConflicts !== undefined,
+  );
+  const deleted = [...source, ...target].some((record) => record.deleted);
+  if (revisions || deleted)
+    return {
+      classification: "conflicting",
+      identityKey,
+      reason: revisions ? "conflicting_revision" : "deleted_record",
+      differences: [],
+      source: source.flatMap((record) => [
+        record,
+        ...(record.revisionConflicts ?? []),
+      ]),
+      target: target.flatMap((record) => [
+        record,
+        ...(record.revisionConflicts ?? []),
+      ]),
+    };
   if (source.length > 1 || target.length > 1) {
     return {
       classification: "conflicting",

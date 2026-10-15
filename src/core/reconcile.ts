@@ -7,10 +7,10 @@ import type {
 import type { CommitFaultHooks } from "../storage/sqlite-store.js";
 import { SqliteReconciliationStore } from "../storage/sqlite-store.js";
 import { classifyRecords, summarize } from "./classify.js";
-import type { ReconciliationReport, RecordSnapshot } from "./model.js";
+import type { ReconciliationReport } from "./model.js";
 import { REPORT_SCHEMA_VERSION } from "./model.js";
 import { normalizeRecord } from "./normalize.js";
-import { compareText } from "./json.js";
+import { mergeObservations } from "./revisions.js";
 import { jsonPolicy, type NormalizationPolicy } from "./policy.js";
 
 export type ReconcileOptions = {
@@ -94,11 +94,12 @@ export async function reconcileDryRun(
     },
     summary: summarize(results),
     results,
+    observationsRead: [...sourceNew, ...targetNew],
   };
 
   options.store.commitRun(
     {
-      observations: [...sourceNew, ...targetNew],
+      observations: [...sourceCurrent, ...targetCurrent],
       checkpoints: new Map([
         [options.source.descriptor.id, sourceRead.checkpoint],
         [options.target.descriptor.id, targetRead.checkpoint],
@@ -137,17 +138,4 @@ async function readIncremental(
     }
     checkpoint = page.nextCheckpoint;
   }
-}
-
-function mergeObservations(
-  stored: readonly RecordSnapshot[],
-  incoming: readonly RecordSnapshot[],
-): readonly RecordSnapshot[] {
-  const records = new Map<string, RecordSnapshot>();
-  for (const record of [...stored, ...incoming]) {
-    records.set(record.recordId, record);
-  }
-  return [...records.values()].sort((left, right) =>
-    compareText(left.recordId, right.recordId),
-  );
 }

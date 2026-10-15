@@ -36,6 +36,7 @@ export type AdapterRecord = {
   readonly identity: IdentityCandidate | null;
   readonly comparable: JsonObject;
   readonly evidence: SourceEvidence;
+  readonly deleted?: boolean;
 };
 
 export type ReadPageRequest = {

@@ -20,6 +20,8 @@ export type RecordSnapshot = {
   readonly comparable: JsonObject;
   readonly evidence: SourceEvidence;
   readonly normalizationVersion: string;
+  readonly deleted?: boolean;
+  readonly revisionConflicts?: readonly RecordSnapshot[];
 };
 
 export type FieldDifference = {
@@ -57,7 +59,11 @@ export type ChangedResult = {
 };
 
 export type ConflictReason =
-  "ambiguous_ownership" | "duplicate_identity" | "missing_identifier";
+  | "ambiguous_ownership"
+  | "duplicate_identity"
+  | "missing_identifier"
+  | "conflicting_revision"
+  | "deleted_record";
 
 export type ConflictingResult = {
   readonly classification: "conflicting";
@@ -105,4 +111,5 @@ export type ReconciliationReport = {
   };
   readonly summary: ReportSummary;
   readonly results: readonly ReconciliationResult[];
+  readonly observationsRead: readonly RecordSnapshot[];
 };
