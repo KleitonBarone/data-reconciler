@@ -7,6 +7,7 @@ import { JsonlLedgerCommerceAdapter } from "./adapters/jsonl-ledger-adapter.js";
 import { reconcileDryRun } from "./core/reconcile.js";
 import { formatTerminalReport } from "./reporters/terminal.js";
 import { SqliteReconciliationStore } from "./storage/sqlite-store.js";
+import { commercePolicy } from "./adapters/commerce-policy.js";
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -56,6 +57,7 @@ async function main(): Promise<void> {
       target: new JsonlLedgerCommerceAdapter(targetPath),
       store,
       pageSize,
+      normalization: commercePolicy,
     });
     const output =
       values.format === "json"

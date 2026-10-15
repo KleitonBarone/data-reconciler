@@ -15,6 +15,7 @@ import {
   JsonlLedgerCommerceAdapter,
   SqliteReconciliationStore,
   reconcileDryRun,
+  commercePolicy,
 } from "data-reconciler";
 
 const store = new SqliteReconciliationStore(":memory:");
@@ -24,6 +25,7 @@ try {
     target: new JsonlLedgerCommerceAdapter("fixtures/target-ledger.jsonl"),
     store,
     pageSize: 2,
+    normalization: commercePolicy,
   });
   console.log(report.summary);
 } finally {
@@ -100,10 +102,13 @@ Field differences distinguish an absent value from JSON `null`:
 }
 ```
 
-The current normalization trims strings and uses Unicode NFKC normalization. It
-uppercases order keys and currency, lowercases email and status, and compares
-arrays by position. These commerce rules are fixed in the core today. They will
-become a configurable policy before the library is considered stable.
+The default `json.v1` normalization preserves string values and identity case.
+An explicit versioned policy configures whitespace, Unicode normalization,
+identity case, per-field rules, ignored fields, and unordered arrays. Field
+selectors use JSON Pointer. Compound identity values are escaped JSON tuples.
+The demo passes `commercePolicy`, which trims strings, uppercases order keys and
+currency, and lowercases email and status. Arrays are positional unless the
+policy declares otherwise.
 
 ## Adapter contract and fixtures
 

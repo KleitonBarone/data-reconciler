@@ -5,3 +5,6 @@ export * from "./adapters/json-page-adapter.js";
 export * from "./adapters/jsonl-ledger-adapter.js";
 export * from "./reporters/terminal.js";
 export * from "./storage/sqlite-store.js";
+export * from "./core/policy.js";
+export * from "./core/errors.js";
+export * from "./adapters/commerce-policy.js";

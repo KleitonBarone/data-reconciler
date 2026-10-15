@@ -6,7 +6,7 @@ import type {
   SourceEvidence,
 } from "../contracts/adapter.js";
 
-export const NORMALIZATION_VERSION = "commerce.v1";
+export const NORMALIZATION_VERSION = "json.v1";
 export const REPORT_SCHEMA_VERSION = "1";
 
 export type Side = "source" | "target";
@@ -19,7 +19,7 @@ export type RecordSnapshot = {
   readonly identityKey: string | null;
   readonly comparable: JsonObject;
   readonly evidence: SourceEvidence;
-  readonly normalizationVersion: typeof NORMALIZATION_VERSION;
+  readonly normalizationVersion: string;
 };
 
 export type FieldDifference = {
@@ -84,7 +84,7 @@ export type ReconciliationReport = {
   readonly runId: string;
   readonly generatedAt: string;
   readonly mode: "dry-run";
-  readonly normalizationVersion: typeof NORMALIZATION_VERSION;
+  readonly normalizationVersion: string;
   readonly adapters: {
     readonly source: AdapterDescriptor;
     readonly target: AdapterDescriptor;

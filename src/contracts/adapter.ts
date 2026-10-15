@@ -21,7 +21,7 @@ export type AdapterCheckpoint = {
 
 export type IdentityCandidate = {
   readonly kind: string;
-  readonly value: string;
+  readonly value: string | readonly string[];
 };
 
 export type SourceEvidence = {

@@ -8,9 +8,10 @@ import type { CommitFaultHooks } from "../storage/sqlite-store.js";
 import { SqliteReconciliationStore } from "../storage/sqlite-store.js";
 import { classifyRecords, summarize } from "./classify.js";
 import type { ReconciliationReport, RecordSnapshot } from "./model.js";
-import { NORMALIZATION_VERSION, REPORT_SCHEMA_VERSION } from "./model.js";
+import { REPORT_SCHEMA_VERSION } from "./model.js";
 import { normalizeRecord } from "./normalize.js";
 import { compareText } from "./json.js";
+import { jsonPolicy, type NormalizationPolicy } from "./policy.js";
 
 export type ReconcileOptions = {
   readonly source: ReadAdapter;
@@ -20,6 +21,7 @@ export type ReconcileOptions = {
   readonly now?: () => Date;
   readonly createRunId?: () => string;
   readonly commitFaultHooks?: CommitFaultHooks;
+  readonly normalization?: NormalizationPolicy;
 };
 
 export async function reconcileDryRun(
@@ -45,10 +47,20 @@ export async function reconcileDryRun(
   ]);
 
   const sourceNew = sourceRead.records.map((record) =>
-    normalizeRecord("source", options.source.descriptor, record),
+    normalizeRecord(
+      "source",
+      options.source.descriptor,
+      record,
+      options.normalization,
+    ),
   );
   const targetNew = targetRead.records.map((record) =>
-    normalizeRecord("target", options.target.descriptor, record),
+    normalizeRecord(
+      "target",
+      options.target.descriptor,
+      record,
+      options.normalization,
+    ),
   );
   const sourceCurrent = mergeObservations(
     options.store.loadObservations(options.source.descriptor.id, "source"),
@@ -64,7 +76,7 @@ export async function reconcileDryRun(
     runId: options.createRunId?.() ?? randomUUID(),
     generatedAt: (options.now?.() ?? new Date()).toISOString(),
     mode: "dry-run",
-    normalizationVersion: NORMALIZATION_VERSION,
+    normalizationVersion: (options.normalization ?? jsonPolicy).version,
     adapters: {
       source: options.source.descriptor,
       target: options.target.descriptor,

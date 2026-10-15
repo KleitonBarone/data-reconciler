@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { JsonPageCommerceAdapter } from "../src/adapters/json-page-adapter.js";
 import { JsonlLedgerCommerceAdapter } from "../src/adapters/jsonl-ledger-adapter.js";
+import { commercePolicy } from "../src/adapters/commerce-policy.js";
 import { reconcileDryRun } from "../src/core/reconcile.js";
 import { formatTerminalReport } from "../src/reporters/terminal.js";
 import { SqliteReconciliationStore } from "../src/storage/sqlite-store.js";
@@ -29,6 +30,7 @@ describe("dry-run reconciliation", () => {
         source: new JsonPageCommerceAdapter(sourceFixture),
         target: new JsonlLedgerCommerceAdapter(targetFixture),
         store,
+        normalization: commercePolicy,
         pageSize: 2,
         now: () => new Date("2026-08-27T12:00:00.000Z"),
         createRunId: () => "fixture-run",
@@ -129,6 +131,7 @@ describe("dry-run reconciliation", () => {
         source: new JsonPageCommerceAdapter(sourcePath),
         target: new JsonlLedgerCommerceAdapter(targetPath),
         store,
+        normalization: commercePolicy,
         pageSize: 1,
       });
       expect(report.recordsRead.source).toBe(2);
@@ -171,6 +174,7 @@ describe("dry-run reconciliation", () => {
         source: new JsonPageCommerceAdapter(sourcePath),
         target: new JsonlLedgerCommerceAdapter(targetPath),
         store,
+        normalization: commercePolicy,
       });
       expect(result(first, "order:ORDER-LATE")?.classification).toBe("missing");
 
@@ -185,6 +189,7 @@ describe("dry-run reconciliation", () => {
         source: new JsonPageCommerceAdapter(sourcePath),
         target: new JsonlLedgerCommerceAdapter(targetPath),
         store,
+        normalization: commercePolicy,
       });
 
       expect(second.recordsRead).toEqual({ source: 0, target: 1 });
@@ -205,6 +210,7 @@ describe("dry-run reconciliation", () => {
           source,
           target,
           store,
+          normalization: commercePolicy,
           commitFaultHooks: {
             afterReport: () => {
               throw new Error("simulated crash");
@@ -220,7 +226,12 @@ describe("dry-run reconciliation", () => {
       );
       expect(store.countReports()).toBe(0);
 
-      const replay = await reconcileDryRun({ source, target, store });
+      const replay = await reconcileDryRun({
+        source,
+        target,
+        store,
+        normalization: commercePolicy,
+      });
       expect(replay.recordsRead).toEqual({ source: 6, target: 4 });
     } finally {
       store.close();
@@ -234,6 +245,7 @@ describe("dry-run reconciliation", () => {
         source: new JsonPageCommerceAdapter(sourceFixture),
         target: new JsonlLedgerCommerceAdapter(targetFixture),
         store,
+        normalization: commercePolicy,
         createRunId: () => "schema-v1-run",
       });
 
@@ -244,6 +256,7 @@ describe("dry-run reconciliation", () => {
           }),
           target: new JsonlLedgerCommerceAdapter(targetFixture),
           store,
+          normalization: commercePolicy,
         }),
       ).rejects.toThrow("checkpoint version does not match");
       expect(store.getReport("schema-v1-run")).toEqual(first);
@@ -262,6 +275,7 @@ describe("dry-run reconciliation", () => {
         source: new JsonPageCommerceAdapter(sourceFixture),
         target: new JsonlLedgerCommerceAdapter(targetFixture),
         store,
+        normalization: commercePolicy,
       });
     } finally {
       store.close();

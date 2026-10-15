@@ -112,7 +112,7 @@ Depends on A. Start here when product development resumes.
       nested objects. Reject non-JSON values and invalid timestamps. Specify
       safe numeric handling for money and large identifiers. Use deterministic
       key and result ordering independent of host locale.
-- [ ] B2. Move the commerce rules into an example normalization policy. Make
+- [x] B2. Move the commerce rules into an example normalization policy. Make
       identity namespaces, case rules, whitespace, array semantics, field
       mappings, and ignored fields explicit. Do not uppercase every arbitrary
       identifier. Support stable compound keys without ambiguous string
