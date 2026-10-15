@@ -1,6 +1,10 @@
 import type { ReconciliationReport } from "../core/model.js";
 
-export function formatTerminalReport(report: ReconciliationReport): string {
+export function formatTerminalReport(
+  report: Omit<ReconciliationReport, "observationsRead" | "results"> & {
+    readonly results: Iterable<ReconciliationReport["results"][number]>;
+  },
+): string {
   const lines = [
     `Dry run ${report.runId}`,
     `${report.adapters.source.displayName} -> ${report.adapters.target.displayName}`,

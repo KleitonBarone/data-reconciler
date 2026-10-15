@@ -189,18 +189,18 @@ Depends on C. Finish this before adding a write capability.
       normalization, policy, contract, and adapter versions explicitly.
       Historical reports retain the interpretation and evidence they were
       created with.
-- [ ] D2. Key state by job, side, dataset generation, and relevant versions.
+- [x] D2. Key state by job, side, dataset generation, and relevant versions.
       Changing an input file, tenant, adapter, normalization, or policy must
       reject incompatible resume or use an explicitly created state generation.
-- [ ] D3. Persist immutable observations and each completed page's checkpoint
+- [x] D3. Persist immutable observations and each completed page's checkpoint
       together. Track run states such as reading, comparing, complete, and
       failed. A final report references a consistent completed read scope.
       Restarting an interrupted run resumes durable work without publishing a
       partial result.
-- [ ] D4. Replace whole-dataset maps and giant transactions with indexed batches
+- [x] D4. Replace whole-dataset maps and giant transactions with indexed batches
       and stable iteration. Keep a current-state index separate from immutable
       evidence. Export reports without loading the entire report into memory.
-- [ ] D5. Serialize writers for the same job with a durable claim or transaction
+- [x] D5. Serialize writers for the same job with a durable claim or transaction
       plus expected checkpoint checks. Reject a stale concurrent commit. Define
       expiry, recovery, and behavior when another process still owns the job.
 - [ ] D6. Detect corruption and incompatible state before advancing checkpoints.

@@ -8,6 +8,8 @@ import type {
 } from "../core/model.js";
 import type { ReconciliationStore } from "../core/store.js";
 import { ReconciliationError } from "../core/errors.js";
+import { migrateRuns, SqliteRunStore } from "./run-store.js";
+import { snapshotValue, decode } from "../core/decoders.js";
 
 export type CommitFaultHooks = {
   /** Tests use this to prove that SQLite rolls back before checkpoints advance. */
@@ -79,6 +81,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
     this.database.exec(
       "CREATE TABLE IF NOT EXISTS jobs (job_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL) STRICT",
     );
+    migrateRuns(this.database);
   }
 
   getCheckpoint(adapterId: string, namespace = ""): AdapterCheckpoint | null {
@@ -136,7 +139,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
       if (!isJsonRow(row)) {
         throw new Error(`Stored observation for ${adapterId} is invalid`);
       }
-      return parseStoredJson(row.json) as RecordSnapshot;
+      return decode(row.json, snapshotValue);
     });
   }
 
@@ -268,12 +271,17 @@ export class SqliteReconciliationStore implements ReconciliationStore {
         "Job dataset or normalization changed. Choose a new job generation for an explicit rescan.",
       );
     return {
+      durable: new SqliteRunStore(this.database, jobId),
       getCheckpoint: (id) => this.getCheckpoint(id, jobId),
       loadObservations: (id, side) => this.loadObservations(id, side, jobId),
       commitRun: (input, hooks) => this.commitRun(input, hooks, jobId),
       recordFailure: (error) => this.recordFailure(error),
       forJob: (id, version) => this.forJob(id, version),
     };
+  }
+
+  get durable() {
+    return new SqliteRunStore(this.database, "");
   }
 }
 

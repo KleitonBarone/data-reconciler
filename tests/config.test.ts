@@ -22,7 +22,9 @@ describe("configuration and projections", () => {
         missing: 1,
         conflicting: 0,
       });
-      expect(report.results[0]?.identityKey).toBe("sku:hat");
+      expect([...store.durable.results(report.runId)][0]?.identityKey).toBe(
+        "sku:hat",
+      );
     } finally {
       store.close();
     }

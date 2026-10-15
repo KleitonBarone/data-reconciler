@@ -13,3 +13,5 @@ export type { ReconciliationStore } from "./core/store.js";
 export * from "./contracts/helpers.js";
 export * from "./adapters/json-file-adapter.js";
 export * from "./config.js";
+export type { RunSummary, DurableStore } from "./core/store.js";
+export * from "./reporters/export.js";

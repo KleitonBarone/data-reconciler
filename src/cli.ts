@@ -11,6 +11,8 @@ import { commercePolicy } from "./adapters/commerce-policy.js";
 import { loadJob } from "./config.js";
 import { compare } from "./core/job.js";
 import { ReconciliationError } from "./core/errors.js";
+import { reportChunks } from "./reporters/export.js";
+import { once } from "node:events";
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -45,8 +47,12 @@ async function main(): Promise<void> {
       "Repair writes are not implemented. This command only supports dry runs.",
     );
   }
-  if (values.format !== "human" && values.format !== "json") {
-    throw new Error("--format must be human or json");
+  if (
+    values.format !== "human" &&
+    values.format !== "json" &&
+    values.format !== "ndjson"
+  ) {
+    throw new Error("--format must be human, json, or ndjson");
   }
 
   const pageSize = Number(values["page-size"]);
@@ -66,16 +72,35 @@ async function main(): Promise<void> {
 
   const store = new SqliteReconciliationStore(storePath);
   try {
-    const report =
-      job === null
-        ? await reconcileDryRun({
-            source: new JsonPageCommerceAdapter(sourcePath),
-            target: new JsonlLedgerCommerceAdapter(targetPath),
-            store,
-            pageSize,
-            normalization: commercePolicy,
-          })
-        : await compare(job, { store });
+    if (job !== null) {
+      const report = await compare(job, { store });
+      if (values.format === "human")
+        process.stdout.write(
+          `${formatTerminalReport({ ...report, results: store.durable.results(report.runId) })}\n`,
+        );
+      else
+        for (const chunk of reportChunks(
+          report,
+          store.durable.results(report.runId),
+          values.format,
+        ))
+          if (!process.stdout.write(chunk)) await once(process.stdout, "drain");
+      if (values.check)
+        process.exitCode =
+          report.summary.conflicting > 0
+            ? 3
+            : report.summary.changed + report.summary.missing > 0
+              ? 2
+              : 0;
+      return;
+    }
+    const report = await reconcileDryRun({
+      source: new JsonPageCommerceAdapter(sourcePath),
+      target: new JsonlLedgerCommerceAdapter(targetPath),
+      store,
+      pageSize,
+      normalization: commercePolicy,
+    });
     const output =
       values.format === "json"
         ? JSON.stringify(report, null, 2)
