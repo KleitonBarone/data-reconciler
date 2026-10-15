@@ -2,6 +2,7 @@ import type { AdapterRecord } from "../contracts/adapter.js";
 import type { RecordSnapshot, Side } from "./model.js";
 import { NORMALIZATION_VERSION } from "./model.js";
 import type { AdapterDescriptor, JsonValue } from "../contracts/adapter.js";
+import { assertJson, compareText, parseTimestamp } from "./json.js";
 
 const CASE_INSENSITIVE_FIELDS = new Set(["customerEmail", "status"]);
 const UPPERCASE_FIELDS = new Set(["currency"]);
@@ -11,18 +12,18 @@ export function normalizeRecord(
   adapter: AdapterDescriptor,
   record: AdapterRecord,
 ): RecordSnapshot {
-  const timestamp = new Date(record.updatedAt);
-  if (Number.isNaN(timestamp.valueOf())) {
-    throw new Error(
-      `${adapter.id} record ${record.recordId} has invalid updatedAt: ${record.updatedAt}`,
-    );
-  }
+  const updatedAt = parseTimestamp(record.updatedAt);
+  assertJson(record.comparable, `${adapter.id}/${record.recordId} comparable`);
+  assertJson(
+    record.evidence.payload,
+    `${adapter.id}/${record.recordId} evidence`,
+  );
 
   return {
     side,
     adapter,
     recordId: record.recordId,
-    updatedAt: timestamp.toISOString(),
+    updatedAt,
     identityKey: normalizeIdentity(record.identity),
     comparable: normalizeObject(record.comparable),
     evidence: record.evidence,
@@ -47,7 +48,7 @@ function normalizeObject(
 ): AdapterRecord["comparable"] {
   return Object.fromEntries(
     Object.entries(value)
-      .sort(([left], [right]) => left.localeCompare(right))
+      .sort(([left], [right]) => compareText(left, right))
       .map(([key, fieldValue]) => [key, normalizeValue(fieldValue, key)]),
   );
 }
@@ -78,7 +79,7 @@ function normalizeValue(value: JsonValue, fieldName: string): JsonValue {
   if (typeof value === "object" && value !== null) {
     return Object.fromEntries(
       Object.entries(value)
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => compareText(left, right))
         .map(([key, nested]) => [key, normalizeValue(nested, key)]),
     );
   }

@@ -10,6 +10,7 @@ import { classifyRecords, summarize } from "./classify.js";
 import type { ReconciliationReport, RecordSnapshot } from "./model.js";
 import { NORMALIZATION_VERSION, REPORT_SCHEMA_VERSION } from "./model.js";
 import { normalizeRecord } from "./normalize.js";
+import { compareText } from "./json.js";
 
 export type ReconcileOptions = {
   readonly source: ReadAdapter;
@@ -135,6 +136,6 @@ function mergeObservations(
     records.set(record.recordId, record);
   }
   return [...records.values()].sort((left, right) =>
-    left.recordId.localeCompare(right.recordId),
+    compareText(left.recordId, right.recordId),
   );
 }

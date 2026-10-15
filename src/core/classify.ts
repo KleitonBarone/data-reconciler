@@ -1,4 +1,5 @@
 import type { JsonObject, JsonValue } from "../contracts/adapter.js";
+import { compareText } from "./json.js";
 import type {
   ComparedValue,
   FieldDifference,
@@ -190,11 +191,12 @@ function compareResults(
 ): number {
   if (left.identityKey === null && right.identityKey !== null) return 1;
   if (left.identityKey !== null && right.identityKey === null) return -1;
-  const identityOrder = (left.identityKey ?? "").localeCompare(
+  const identityOrder = compareText(
+    left.identityKey ?? "",
     right.identityKey ?? "",
   );
   if (identityOrder !== 0) return identityOrder;
-  return firstRecordId(left).localeCompare(firstRecordId(right));
+  return compareText(firstRecordId(left), firstRecordId(right));
 }
 
 function firstRecordId(result: ReconciliationResult): string {

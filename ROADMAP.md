@@ -108,7 +108,7 @@ retry failing assertions to make CI green.
 
 Depends on A. Start here when product development resumes.
 
-- [ ] B1. Preserve booleans, null, absent values, numbers, strings, arrays, and
+- [x] B1. Preserve booleans, null, absent values, numbers, strings, arrays, and
       nested objects. Reject non-JSON values and invalid timestamps. Specify
       safe numeric handling for money and large identifiers. Use deterministic
       key and result ordering independent of host locale.

@@ -1,10 +1,9 @@
 import type { JsonObject, JsonValue } from "../contracts/adapter.js";
+import { assertJson } from "../core/json.js";
 
 export function parseJson(text: string, description: string): JsonValue {
   const value: unknown = JSON.parse(text);
-  if (!isJsonValue(value)) {
-    throw new Error(`${description} is not valid JSON data`);
-  }
+  assertJson(value, description);
   return value;
 }
 
@@ -54,20 +53,4 @@ export function optionalString(
 ): string | null {
   if (value === null || value === undefined) return null;
   return expectString(value, description);
-}
-
-function isJsonValue(value: unknown): value is JsonValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "boolean"
-  ) {
-    return true;
-  }
-  if (typeof value === "number") return Number.isFinite(value);
-  if (Array.isArray(value)) return value.every(isJsonValue);
-  if (typeof value === "object") {
-    return Object.values(value).every(isJsonValue);
-  }
-  return false;
 }
