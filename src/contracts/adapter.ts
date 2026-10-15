@@ -46,6 +46,7 @@ export type AdapterRecord = {
 export type ReadPageRequest = {
   readonly checkpoint: AdapterCheckpoint | null;
   readonly limit: number;
+  readonly signal?: AbortSignal;
 };
 
 export type ReadPageResult = {

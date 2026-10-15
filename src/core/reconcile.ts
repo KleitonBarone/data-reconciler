@@ -4,8 +4,8 @@ import type {
   AdapterRecord,
   ReadAdapter,
 } from "../contracts/adapter.js";
-import type { CommitFaultHooks } from "../storage/sqlite-store.js";
-import { SqliteReconciliationStore } from "../storage/sqlite-store.js";
+import type { CommitFaultHooks, ReconciliationStore } from "./store.js";
+import { checkCancelled } from "./job.js";
 import { classifyRecords, summarize } from "./classify.js";
 import type { ReconciliationReport } from "./model.js";
 import { REPORT_SCHEMA_VERSION } from "./model.js";
@@ -16,12 +16,14 @@ import { jsonPolicy, type NormalizationPolicy } from "./policy.js";
 export type ReconcileOptions = {
   readonly source: ReadAdapter;
   readonly target: ReadAdapter;
-  readonly store: SqliteReconciliationStore;
+  readonly store: ReconciliationStore;
   readonly pageSize?: number;
   readonly now?: () => Date;
   readonly createRunId?: () => string;
   readonly commitFaultHooks?: CommitFaultHooks;
   readonly normalization?: NormalizationPolicy;
+  readonly signal?: AbortSignal;
+  readonly onPage?: (side: "source" | "target", records: number) => void;
 };
 
 export async function reconcileDryRun(
@@ -53,8 +55,20 @@ async function executeDryRun(
     options.target.descriptor.id,
   );
   const [sourceRead, targetRead] = await Promise.all([
-    readIncremental(options.source, beforeSource, pageSize),
-    readIncremental(options.target, beforeTarget, pageSize),
+    readIncremental(
+      options.source,
+      beforeSource,
+      pageSize,
+      options.signal,
+      (records) => options.onPage?.("source", records),
+    ),
+    readIncremental(
+      options.target,
+      beforeTarget,
+      pageSize,
+      options.signal,
+      (records) => options.onPage?.("target", records),
+    ),
   ]);
 
   const sourceNew = sourceRead.records.map((record) =>
@@ -108,6 +122,7 @@ async function executeDryRun(
     observationsRead: [...sourceNew, ...targetNew],
   };
 
+  checkCancelled(options.signal);
   options.store.commitRun(
     {
       observations: [...sourceCurrent, ...targetCurrent],
@@ -132,13 +147,22 @@ async function readIncremental(
   adapter: ReadAdapter,
   initialCheckpoint: AdapterCheckpoint | null,
   pageSize: number,
+  signal?: AbortSignal,
+  onPage?: (records: number) => void,
 ): Promise<IncrementalRead> {
   const records: AdapterRecord[] = [];
   let checkpoint = initialCheckpoint;
   const seen = new Set<string>();
 
   for (;;) {
-    const page = await adapter.readPage({ checkpoint, limit: pageSize });
+    checkCancelled(signal);
+    const page = await adapter.readPage({
+      checkpoint,
+      limit: pageSize,
+      ...(signal === undefined ? {} : { signal }),
+    });
+    checkCancelled(signal);
+    onPage?.(page.records.length);
     records.push(...page.records);
     if (!page.hasMore) {
       return { records, checkpoint: page.nextCheckpoint };

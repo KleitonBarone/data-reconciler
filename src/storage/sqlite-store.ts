@@ -6,6 +6,8 @@ import type {
   RecordSnapshot,
   Side,
 } from "../core/model.js";
+import type { ReconciliationStore } from "../core/store.js";
+import { ReconciliationError } from "../core/errors.js";
 
 export type CommitFaultHooks = {
   /** Tests use this to prove that SQLite rolls back before checkpoints advance. */
@@ -28,7 +30,7 @@ type CheckpointRow = {
 
 type JsonRow = { readonly json: string };
 
-export class SqliteReconciliationStore {
+export class SqliteReconciliationStore implements ReconciliationStore {
   private readonly database: DatabaseSync;
 
   constructor(path: string) {
@@ -74,15 +76,18 @@ export class SqliteReconciliationStore {
     this.database.exec(
       "CREATE TABLE IF NOT EXISTS failures (id INTEGER PRIMARY KEY, error_json TEXT NOT NULL) STRICT",
     );
+    this.database.exec(
+      "CREATE TABLE IF NOT EXISTS jobs (job_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL) STRICT",
+    );
   }
 
-  getCheckpoint(adapterId: string): AdapterCheckpoint | null {
+  getCheckpoint(adapterId: string, namespace = ""): AdapterCheckpoint | null {
     const row: unknown = this.database
       .prepare(
         `SELECT contract_version, adapter_version, schema_version, cursor, checkpoint_json
          FROM checkpoints WHERE adapter_id = ?`,
       )
-      .get(adapterId);
+      .get(adapterKey(namespace, adapterId));
     if (row === undefined) return null;
     if (!isCheckpointRow(row)) {
       throw new Error(`Stored checkpoint for ${adapterId} is invalid`);
@@ -116,13 +121,17 @@ export class SqliteReconciliationStore {
     };
   }
 
-  loadObservations(adapterId: string, side: Side): readonly RecordSnapshot[] {
+  loadObservations(
+    adapterId: string,
+    side: Side,
+    namespace = "",
+  ): readonly RecordSnapshot[] {
     const rows = this.database
       .prepare(
         `SELECT snapshot_json AS json FROM observations
          WHERE adapter_id = ? AND side = ? ORDER BY record_id`,
       )
-      .all(adapterId, side);
+      .all(adapterKey(namespace, adapterId), side);
     return rows.map((row) => {
       if (!isJsonRow(row)) {
         throw new Error(`Stored observation for ${adapterId} is invalid`);
@@ -173,7 +182,11 @@ export class SqliteReconciliationStore {
       );
   }
 
-  commitRun(input: CommitRunInput, hooks: CommitFaultHooks = {}): void {
+  commitRun(
+    input: CommitRunInput,
+    hooks: CommitFaultHooks = {},
+    namespace = "",
+  ): void {
     const upsertObservation = this.database.prepare(`
       INSERT INTO observations (
         adapter_id, side, record_id, identity_key, snapshot_json
@@ -204,7 +217,7 @@ export class SqliteReconciliationStore {
     try {
       for (const observation of input.observations) {
         upsertObservation.run(
-          observation.adapter.id,
+          adapterKey(namespace, observation.adapter.id),
           observation.side,
           observation.recordId,
           observation.identityKey,
@@ -222,7 +235,7 @@ export class SqliteReconciliationStore {
 
       for (const [adapterId, checkpoint] of input.checkpoints) {
         upsertCheckpoint.run(
-          adapterId,
+          adapterKey(namespace, adapterId),
           checkpoint.contractVersion,
           checkpoint.adapterVersion,
           checkpoint.schemaVersion,
@@ -241,6 +254,31 @@ export class SqliteReconciliationStore {
   close(): void {
     this.database.close();
   }
+
+  forJob(jobId: string, fingerprint: string): ReconciliationStore {
+    this.database
+      .prepare("INSERT OR IGNORE INTO jobs VALUES (?, ?)")
+      .run(jobId, fingerprint);
+    const row = this.database
+      .prepare("SELECT fingerprint FROM jobs WHERE job_id = ?")
+      .get(jobId);
+    if (row?.fingerprint !== fingerprint)
+      throw new ReconciliationError(
+        "incompatible_state",
+        "Job dataset or normalization changed. Choose a new job generation for an explicit rescan.",
+      );
+    return {
+      getCheckpoint: (id) => this.getCheckpoint(id, jobId),
+      loadObservations: (id, side) => this.loadObservations(id, side, jobId),
+      commitRun: (input, hooks) => this.commitRun(input, hooks, jobId),
+      recordFailure: (error) => this.recordFailure(error),
+      forJob: (id, version) => this.forJob(id, version),
+    };
+  }
+}
+
+function adapterKey(namespace: string, adapterId: string): string {
+  return namespace === "" ? adapterId : JSON.stringify([namespace, adapterId]);
 }
 
 function isCheckpointRow(value: unknown): value is CheckpointRow {

@@ -143,19 +143,19 @@ whole workflow.
 
 Depends on B. Keep the API provisional until the final package gate in H.
 
-- [ ] C1. Define a small typed job configuration with a stable job ID, source,
+- [x] C1. Define a small typed job configuration with a stable job ID, source,
       target, dataset identities, normalization version, and comparison policy.
       Keep raw records, normalized snapshots, reports, and errors distinct.
       Infer adapter record types without `any` or consumer casting wrappers.
-- [ ] C2. Introduce a storage interface defined by core needs and a default
+- [x] C2. Introduce a storage interface defined by core needs and a default
       SQLite implementation. Inject clock, run IDs, and cancellation where
       needed for reproducibility. Keep store setup and connection ownership
       obvious.
-- [ ] C3. Expose documented compare and report APIs from public exports. Add
+- [x] C3. Expose documented compare and report APIs from public exports. Add
       typed errors and lifecycle events that applications can observe without
       parsing terminal text. Importing the library must have no file or network
       side effects.
-- [ ] C4. Add a typed adapter helper and reusable contract test suite. Describe
+- [x] C4. Add a typed adapter helper and reusable contract test suite. Describe
       pagination consistency, revision ordering, evidence, optional write
       capabilities, cancellation, and error translation. Adapter versions and
       external schema versions have separate meanings.

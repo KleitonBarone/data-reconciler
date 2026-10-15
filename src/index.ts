@@ -8,3 +8,6 @@ export * from "./storage/sqlite-store.js";
 export * from "./core/policy.js";
 export * from "./core/errors.js";
 export * from "./adapters/commerce-policy.js";
+export * from "./core/job.js";
+export type { ReconciliationStore } from "./core/store.js";
+export * from "./contracts/helpers.js";
