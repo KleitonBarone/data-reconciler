@@ -11,3 +11,5 @@ export * from "./adapters/commerce-policy.js";
 export * from "./core/job.js";
 export type { ReconciliationStore } from "./core/store.js";
 export * from "./contracts/helpers.js";
+export * from "./adapters/json-file-adapter.js";
+export * from "./config.js";

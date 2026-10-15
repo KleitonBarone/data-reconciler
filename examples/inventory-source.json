@@ -1,0 +1,14 @@
+[
+  {
+    "id": "warehouse-a",
+    "sku": "shirt",
+    "updatedAt": "2026-01-02T00:00:00Z",
+    "available": 12
+  },
+  {
+    "id": "warehouse-b",
+    "sku": "hat",
+    "updatedAt": "2026-01-02T00:00:00Z",
+    "available": 8
+  }
+]

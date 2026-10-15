@@ -1,0 +1,27 @@
+{
+  "id": "inventory-demo",
+  "source": {
+    "id": "warehouse",
+    "type": "json",
+    "path": "inventory-source.json",
+    "schemaVersion": "warehouse.v1",
+    "projection": {
+      "id": "/id",
+      "updatedAt": "/updatedAt",
+      "identity": { "kind": "sku", "paths": ["/sku"] },
+      "fields": { "available": "/available" }
+    }
+  },
+  "target": {
+    "id": "shop",
+    "type": "jsonl",
+    "path": "inventory-target.jsonl",
+    "schemaVersion": "shop.v1",
+    "projection": {
+      "id": "/key",
+      "updatedAt": "/modified",
+      "identity": { "kind": "sku", "paths": ["/product/sku"] },
+      "fields": { "available": "/product/stock" }
+    }
+  }
+}

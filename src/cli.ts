@@ -8,6 +8,9 @@ import { reconcileDryRun } from "./core/reconcile.js";
 import { formatTerminalReport } from "./reporters/terminal.js";
 import { SqliteReconciliationStore } from "./storage/sqlite-store.js";
 import { commercePolicy } from "./adapters/commerce-policy.js";
+import { loadJob } from "./config.js";
+import { compare } from "./core/job.js";
+import { ReconciliationError } from "./core/errors.js";
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -15,6 +18,8 @@ async function main(): Promise<void> {
     strict: true,
     options: {
       apply: { type: "boolean", default: false },
+      config: { type: "string" },
+      check: { type: "boolean", default: false },
       "dry-run": { type: "boolean", default: true },
       format: { type: "string", default: "human" },
       help: { type: "boolean", short: "h", default: false },
@@ -29,7 +34,10 @@ async function main(): Promise<void> {
     process.stdout.write(`${usage()}\n`);
     return;
   }
-  if (positionals.length !== 1 || positionals[0] !== "reconcile") {
+  if (
+    positionals.length !== 1 ||
+    !["reconcile", "compare"].includes(positionals[0] ?? "")
+  ) {
     throw new Error(`Unknown command.\n\n${usage()}`);
   }
   if (values.apply || !values["dry-run"]) {
@@ -48,22 +56,38 @@ async function main(): Promise<void> {
   const sourcePath = resolve(required(values.source, "--source"));
   const targetPath = resolve(required(values.target, "--target"));
   const storePath = resolve(required(values.store, "--store"));
+  if (positionals[0] === "compare" && values.config === undefined)
+    throw new ReconciliationError(
+      "invalid_config",
+      "compare requires --config <path>",
+    );
+  const job = values.config === undefined ? null : await loadJob(values.config);
   await mkdir(dirname(storePath), { recursive: true });
 
   const store = new SqliteReconciliationStore(storePath);
   try {
-    const report = await reconcileDryRun({
-      source: new JsonPageCommerceAdapter(sourcePath),
-      target: new JsonlLedgerCommerceAdapter(targetPath),
-      store,
-      pageSize,
-      normalization: commercePolicy,
-    });
+    const report =
+      job === null
+        ? await reconcileDryRun({
+            source: new JsonPageCommerceAdapter(sourcePath),
+            target: new JsonlLedgerCommerceAdapter(targetPath),
+            store,
+            pageSize,
+            normalization: commercePolicy,
+          })
+        : await compare(job, { store });
     const output =
       values.format === "json"
         ? JSON.stringify(report, null, 2)
         : formatTerminalReport(report);
     process.stdout.write(`${output}\n`);
+    if (values.check)
+      process.exitCode =
+        report.summary.conflicting > 0
+          ? 3
+          : report.summary.changed + report.summary.missing > 0
+            ? 2
+            : 0;
   } finally {
     store.close();
   }
@@ -78,10 +102,13 @@ function required(value: string | undefined, option: string): string {
 
 function usage(): string {
   return [
-    "Usage: data-reconciler reconcile [options]",
+    "Usage: data-reconciler compare --config <job.json|job.mjs> [options]",
+    "       data-reconciler reconcile [options]",
     "",
     "Options:",
     "  --source <path>     Acme JSON pages",
+    "  --config <path>     Validated job configuration",
+    "  --check             Exit 2 for drift or 3 for conflicts",
     "  --target <path>     Northstar JSONL ledger",
     "  --store <path>      SQLite state and report store",
     "  --page-size <count> Incremental read page size",
@@ -94,5 +121,10 @@ function usage(): string {
 main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   process.stderr.write(`data-reconciler: ${message}\n`);
-  process.exitCode = 1;
+  process.exitCode =
+    error instanceof ReconciliationError && error.code === "invalid_config"
+      ? 4
+      : error instanceof ReconciliationError && error.code === "cancelled"
+        ? 130
+        : 1;
 });

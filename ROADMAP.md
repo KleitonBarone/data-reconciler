@@ -159,7 +159,7 @@ Depends on B. Keep the API provisional until the final package gate in H.
       pagination consistency, revision ordering, evidence, optional write
       capabilities, cancellation, and error translation. Adapter versions and
       external schema versions have separate meanings.
-- [ ] C5. Load a validated local job configuration in the CLI so a custom
+- [x] C5. Load a validated local job configuration in the CLI so a custom
       adapter can run without editing the CLI. Resolve config-relative paths
       predictably. Support declarative field projections for the included
       formats and callbacks for application-specific mapping, without creating
