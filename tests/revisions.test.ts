@@ -43,10 +43,11 @@ describe("record revisions", () => {
       const shuffled = [...originals, ...originals.slice(0, 10)];
       for (let index = shuffled.length - 1; index > 0; index--) {
         const other = random() % (index + 1);
-        [shuffled[index], shuffled[other]] = [
-          shuffled[other]!,
-          shuffled[index]!,
-        ];
+        const left = shuffled[index];
+        const right = shuffled[other];
+        if (left === undefined || right === undefined)
+          throw new Error("Invalid shuffle index");
+        [shuffled[index], shuffled[other]] = [right, left];
       }
       let current: ReturnType<typeof mergeObservations> = [];
       for (let index = 0; index < shuffled.length;) {
