@@ -51,8 +51,9 @@ did not account for:
 | The core accepts a concrete SQLite class, the CLI knows two fixed adapters, and the package is private. | Add an integration API, configuration, external consumer examples, and package verification.   |
 | A thrown transaction hook tests rollback.                                                               | Add actual process termination and uncertain external-write recovery tests.                    |
 
-The boolean conversion was reproduced during planning. The other entries follow
-from the current implementation and need focused tests before their fixes.
+The boolean conversion was reproduced with a failing regression test and fixed
+in the first B1 slice. The other entries describe the starting implementation
+and need focused tests before their fixes.
 
 ## Decisions that constrain the implementation
 

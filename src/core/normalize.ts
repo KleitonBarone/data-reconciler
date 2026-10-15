@@ -75,9 +75,9 @@ function normalizeValue(value: JsonValue, fieldName: string): JsonValue {
     return value.map((item) => normalizeValue(item, fieldName));
   }
 
-  if (value !== null) {
+  if (typeof value === "object" && value !== null) {
     return Object.fromEntries(
-      (Object.entries(value) as [string, JsonValue][])
+      Object.entries(value)
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([key, nested]) => [key, normalizeValue(nested, key)]),
     );

@@ -160,9 +160,9 @@ database migration command or historical repair audit.
 
 ## Known limits
 
-- Boolean comparable values currently normalize to `{}`. The bundled commerce
-  fixtures do not contain boolean fields. Fixing this is the first planned
-  product slice.
+- Boolean comparable values retain their JSON type, including in nested objects
+  and arrays. Other validation and configurable normalization work is tracked in
+  phase B.
 - Delivery order selects the current observation when the same local ID arrives
   with different values. Stale or indistinguishable revisions need an explicit
   policy before arbitrary adapters are safe.
