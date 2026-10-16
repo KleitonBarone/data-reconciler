@@ -6,6 +6,14 @@ H, with a working demonstration and automated acceptance checks at each step.
 The commit schedule below covers every work item. Complete and verify each
 slice, commit it locally, then continue to the next slice.
 
+The implemented candidate is `1.0.0-rc.1`. Local gates cover the complete
+installed workflow, including a concurrent target change, process termination,
+resume, repeat apply, replay, backup, and unresolved conflicts. The Linux and
+Windows [CI matrix](.github/workflows/ci.yml) and separate
+[performance gate](.github/workflows/performance.yml) must pass on the pushed
+commit before accepting it. Registry-name confirmation and publication remain
+separate release actions; the package stays private.
+
 ## Product and finish line
 
 Data Reconciler helps integration developers find and explain drift, then apply
@@ -40,7 +48,7 @@ Those milestones do not establish general adapter correctness or readiness for
 repair writes. Source review identified the following work that the old roadmap
 did not account for:
 
-| Current behavior                                                                                        | Work required before 1.0                                                                       |
+| Prototype behavior                                                                                      | Work addressed by the implementation phases                                                    |
 | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | Booleans normalize to objects, and normalization rules are fixed commerce fields.                       | Preserve every JSON type and make normalization an explicit versioned job policy.              |
 | The latest delivered record overwrites a prior observation with the same local ID.                      | Distinguish duplicates, ordered revisions, stale arrivals, and conflicting revisions.          |
@@ -51,9 +59,10 @@ did not account for:
 | The core accepts a concrete SQLite class, the CLI knows two fixed adapters, and the package is private. | Add an integration API, configuration, external consumer examples, and package verification.   |
 | A thrown transaction hook tests rollback.                                                               | Add actual process termination and uncertain external-write recovery tests.                    |
 
-The boolean conversion was reproduced with a failing regression test and fixed
-in the first B1 slice. The other entries describe the starting implementation
-and need focused tests before their fixes.
+These entries describe the original starting implementation, not the candidate.
+Their fixes and focused behavioral tests are implemented in the checked phases.
+The original in-memory API remains a documented legacy convenience; the new job
+API provides the bounded processing path.
 
 ## Decisions that constrain the implementation
 
@@ -324,15 +333,15 @@ release gate here.
       installed CLI. The consumer cannot access repository files, undeclared
       dependencies, or dev tooling. Test bundled demo asset resolution from an
       unrelated directory.
-- [ ] H3. Keep a short README with the install command, one working example,
+- [x] H3. Keep a short README with the install command, one working example,
       status, and documentation links. Ship detailed guides for adapter authors,
       normalization, ownership, plans, writes, replay, upgrades, and recovery.
       Run documentation examples as consumer tests.
-- [ ] H4. Require `pnpm check`, adapter contracts, compiled workflow scenarios,
+- [x] H4. Require `pnpm check`, adapter contracts, compiled workflow scenarios,
       migration tests, and the package-consumer test on Linux and Windows. Add
       macOS or additional Node versions only when declaring support and testing
       them. Make performance budgets measurable on a named runner.
-- [ ] H5. Produce a release candidate with changelog, compatibility notes, and
+- [x] H5. Produce a release candidate with changelog, compatibility notes, and
       documented limitations. Rehearse the entire acceptance scenario below from
       a clean install. Publishing a package is a separate explicit release
       action.
@@ -481,8 +490,12 @@ can repeat the complete workflow. Package publication is tracked separately from
 implementation completion. Do not estimate progress as a percentage of checked
 boxes or add dates before the next slices are understood.
 
-The immediate next slice is B1: tests and fixes for JSON value preservation and
-deterministic normalization. C, D, and E must finish before any F write work.
+All implementation items have local acceptance evidence. `pnpm check` covers
+source and schema tests plus compiled CLI and installed-consumer scenarios.
+`pnpm benchmark` covers 100,000 records per side; the performance workflow adds
+256 generated delivery/page seeds. See `docs/performance.md` for measurements.
+The remaining release decision is registry-name confirmation and explicit
+publication approval after the candidate's supported CI jobs pass.
 
 ## Outside the bounded 1.0 release
 

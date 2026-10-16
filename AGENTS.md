@@ -1,60 +1,71 @@
 # AGENTS.md
 
-## Project orientation
+## Orientation
 
-Data Reconciler finds and repairs drift between two systems. Its main
-responsibilities are identity, normalization, checkpoints, conflict handling,
-replay, and auditability.
+Data Reconciler finds drift, records evidence, and applies explicitly accepted
+create/update plans. The library and CLI share the same job, plan, and execution
+APIs. Read `README.md` and `ROADMAP.md` before changing scope. The 1.0 release
+candidate implements the local workflow; the roadmap records release gates. Do
+not describe a pending gate as verified.
 
-Read `README.md` and `ROADMAP.md` before changing scope. Milestones 0 and 1 are
-implemented as a local dry-run prototype. Follow phases A through H in the
-completion plan. Never describe unchecked roadmap work as implemented.
+## Safety and data boundaries
 
-## Product rules
+- Comparison never dispatches writes. Apply requires an accepted digest,
+  selected operations, field ownership, expiry, and bounded authorization.
+- Never infer a winner for missing identities, duplicate owners, equal-time
+  disagreements, tombstones, or ambiguous revisions.
+- Checkpoints commit with page evidence. Partial reads cannot publish a report.
+- Intent commits before target I/O. Retry writes only with durable deduplication
+  and atomic target preconditions. Preserve unknown outcomes for recovery.
+- Preserve historical reports, plans, acceptances, and repair history. Schema or
+  policy changes cannot reinterpret them.
+- Tests, demos, conformance checks, and benchmarks use disposable synthetic
+  data. Never connect them to live accounts. Writer conformance intentionally
+  mutates its empty disposable target.
+- Do not erase state, target receipts, or claims to bypass a stale plan. Keep a
+  backup, then use the documented recovery procedure or a new generation.
+- Publishing, deployment, production access, and pushing require user authority.
+  Local commits do not authorize any of them.
 
-- Dry run is the default. Applying repairs requires an explicit action.
-- Never silently choose a winner when ownership or ordering is ambiguous.
-- Keep source records, normalized records, differences, decisions, and applied
-  repairs distinct.
-- Checkpoints advance only after the corresponding work is durably recorded.
-- Repairs must be idempotent or carry a deduplication key.
-- Preserve enough source evidence to explain every proposed change.
-- Schema changes and adapter version changes must not reinterpret old audit
-  records.
+## Architecture
 
-## Adapter boundary
+Node.js 24, strict TypeScript ESM, pnpm 11, one package, zero runtime
+dependencies. SQLite stores page evidence, current observations, reports, plans,
+and outcomes.
 
-Adapters read and write external formats. The core engine owns normalization,
-matching, comparison, decisions, and repair plans. Do not embed
-provider-specific fields or pagination behavior in the core model.
+Adapters own provider formats, pagination, revision tokens, and conditional
+writes. Core owns normalization, matching, classification, ownership, plans, and
+execution. Core imports storage contracts, not SQLite implementations. Keep
+source evidence, normalized snapshots, differences, accepted decisions, and
+write outcomes separate. Do not move provider fields into the core.
 
-The first adapters use synthetic local data. Do not connect a demo or test to a
-live account. The runtime is Node.js 24 with strict TypeScript and pnpm. SQLite
-stores checkpoints, observations, and dry-run reports.
+The legacy `reconcileDryRun` API is in-memory. New work uses `compare`, indexed
+groups, and streamed results. Preserve ownership-group and plan byte budgets.
+Use declared public exports; packed consumer tests must not use source aliases.
 
-## Verification
+## Verify
 
-Run the full local check with `pnpm check`. Its individual commands are
-`pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and
-`pnpm test:e2e`. The end-to-end command builds before running the compiled CLI.
-Use `pnpm test:watch` for the short integration loop and `pnpm format` to write
-formatting changes. See `CONTRIBUTING.md` for the complete workflow.
+- `pnpm test:watch` is the short source-test loop.
+- `pnpm exec vitest run tests/repairs.test.ts` selects a focused behavior.
+- `pnpm test:e2e` builds first, then tests compiled processes and a packed
+  consumer.
+- `pnpm check` runs formatting, lint, types, source tests, build, and end-to-end
+  tests. Run it before an implementation commit.
+- `pnpm format` writes formatting. Static commands are `pnpm format:check`,
+  `pnpm lint`, and `pnpm typecheck`.
+- `pnpm benchmark` measures 100,000 records per side. Run it for storage/query
+  or bounded-memory changes. Larger seeded checks are in the performance
+  workflow.
 
-Current tests cover checkpoint crashes, duplicate pages, late records, missing
-identifiers, conflicting updates, incompatible schema versions, evidence
-retention, and dry-run immutability. The compiled CLI scenarios also prove
-restart, persisted reports, input immutability, and failed-read rollback. The
-existing checkpoint crash test throws inside a transaction; actual process
-termination and repair recovery are separate roadmap gates. Prefer seeded
-generated fixtures that exercise ordering and duplication.
+Use real SQLite and named synchronization points for process-crash tests. Repair
+tests must prove a second identical apply has zero further effects. Test data
+ordering, duplicate delivery, and late revisions with reproducible seeds. Use
+one focused local Conventional Commit per verified slice.
 
-Any test that applies repairs must target disposable data and prove that a
-second identical run makes no further changes.
+## Documentation
 
-## Documentation boundaries
-
-Keep discovery, maturity, and the shortest working example in `README.md`.
-Detailed current contracts, diff examples, and limitations belong in
-`docs/current-behavior.md`; contributor commands belong in `CONTRIBUTING.md`.
-Keep agent operating rules here. Update `ROADMAP.md` when milestone scope or
-acceptance gates change.
+Keep discovery and the shortest trial in `README.md`. Contracts and limitations
+belong under `docs/`; development commands belong in `CONTRIBUTING.md`. Update
+the roadmap when acceptance gates change. Keep registry publication separate
+from implementation completion and retain `private` until the package name and
+release are explicitly confirmed.

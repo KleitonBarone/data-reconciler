@@ -1,102 +1,93 @@
 # Development
 
-Use Node.js 24 or newer and pnpm 11. The repository is one strict TypeScript ESM
-package. Tests use synthetic data and actual SQLite; no accounts or services are
-required.
+Use Node.js 24 and pnpm 11. The repository is one strict TypeScript ESM package
+with real SQLite tests and synthetic data. No services or credentials are
+needed.
 
-## Start the loop
+## Short loop
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm test:watch
 ```
 
-The watcher runs the integration suite as files change. Keep it running while
-working on an adapter, normalization, comparison, or persistence. To run that
-suite once, use `pnpm test`.
-
-Select a focused behavior when investigating a failure:
+The watcher excludes compiled-process tests, so it never uses a stale build.
+Choose a focused test while editing:
 
 ```sh
-pnpm exec vitest run tests/reconcile.test.ts -t "late record"
+pnpm exec vitest run tests/repairs.test.ts -t "lost acknowledgements"
+pnpm exec vitest run tests/revisions.test.ts
 ```
 
-For a manual CLI run from the repository root:
+Run a fresh disposable scenario manually:
 
 ```sh
-pnpm dev reconcile --format json --store .data/development.sqlite
+pnpm dev init-demo --directory .data/development
+pnpm dev compare --config .data/development/job.json --store .data/development/state.sqlite
 ```
 
-That store persists between runs. Use a new store filename for a new dataset or
-an independent scenario. The current adapters cannot distinguish changed input
-paths from an existing dataset. Do not point them at production data.
+The initializer refuses existing directories. Pick a new name for an independent
+scenario. Dataset, adapter, normalization, and ownership changes reject resume
+within an existing job generation. Use `--generation ID` explicitly to rescan
+while retaining old history.
 
-## Verify the user workflow
+Other runnable examples are `pnpm example:worker` and `pnpm example:http`. The
+latter owns its loopback HTTP server and closes it after the example.
 
-```sh
-pnpm test:e2e
-```
-
-This builds the library and CLI, then runs `dist/cli.js` through Node in child
-processes. Each scenario copies fixture inputs into a unique temporary directory
-with spaces in its name and runs outside the repository's working directory. It
-uses a real SQLite file and closes the process before inspecting durable state.
-
-The scenarios prove that JSON parses without terminal text mixed into stdout,
-differences retain evidence, another process resumes checkpoints, input bytes
-are unchanged, rejected apply creates no store, and a failed read leaves the
-previous committed state intact. Failures report subprocess diagnostics;
-subprocesses have a ten-second timeout. Cleanup removes only scenario-owned
-temporary files.
-
-`pnpm test` and `pnpm test:watch` exclude these tests so the short loop does not
-depend on a possibly stale build. Always use `pnpm test:e2e` to build before
-running them. Existing integration tests exercise library behavior and
-transaction rollback; process termination and external writer recovery are
-future [roadmap](ROADMAP.md) gates.
-
-## Before handing off a change
+## Full verification
 
 ```sh
 pnpm check
 ```
 
-This runs Prettier checks, type-aware ESLint, strict type checking, the
-integration suite, a build, and the compiled CLI scenarios. CI runs this same
-command on Linux and Windows with a frozen lockfile. A local pass does not
-replace the other operating system's CI result.
+This runs `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and
+`pnpm test:e2e`. Use `pnpm format` to write formatting.
 
-Use `pnpm format` to write formatting changes. Individual static checks are
-`pnpm format:check`, `pnpm lint`, and `pnpm typecheck`. `pnpm build` creates the
-ESM output and type declarations in `dist/`.
+The end-to-end command builds before spawning the compiled CLI. It verifies
+restart, source immutability, digest review, target drift, real process
+termination, lost acknowledgements, and repeated apply without further effects.
+A packed consumer compiles independently, then runs without runtime development
+dependencies from an unrelated directory. It checks bundled assets, source maps,
+the documented example, backup, replay, and audit.
 
-## How to take the next slice
+CI runs this command on Linux and Windows. A local Windows pass is not evidence
+of a Linux pass. The root TypeScript self-import alias checks bundled examples
+before a build; the external consumer has no alias or access to repository
+sources. Ajv and its format plugin are development-only independent checks of
+serialized JSON schemas, not runtime dependencies.
 
-Follow [ROADMAP.md](ROADMAP.md) in dependency order. The immediate next product
-slice is B1, correcting JSON value preservation and deterministic normalization.
-The current implementation is documented in
-[docs/current-behavior.md](docs/current-behavior.md).
+## Performance and generated checks
 
-Pick the smallest observable result before editing code. Use a unit test for a
-pure transformation, a shared contract test for adapter guarantees, an
-integration test for SQLite boundaries, and a subprocess test for CLI or crash
-behavior. Add each kind when it proves a distinct failure, rather than testing
-the same implementation detail at every layer.
+```sh
+pnpm benchmark
+```
 
-Seed generated fixtures and print the seed on failure. Synchronize crash tests
-at named durable boundaries rather than sleeping for a guessed duration. Repair
-tests must use disposable targets and prove a second identical apply has no
-further effects. Keep the README aimed at people discovering the tool; put
-detailed implementation and recovery instructions in focused guides.
+The benchmark uses 100,000 records per side and seed 42. Processing budgets and
+measurements are in [docs/performance.md](docs/performance.md). The separate
+performance workflow runs on `ubuntu-latest` with Node.js 24, exercises 256
+revision/permutation seeds, and saves JSON artifacts even on failure.
+`RECONCILER_TEST_SEEDS` selects up to 1,000 seeds locally. Small deterministic
+scenarios remain in ordinary checks.
 
-## Commit as you progress
+Prefer a unit test for a transformation, reusable conformance checks for an
+adapter contract, real SQLite integration tests for persistence, and child
+processes for crash behavior. Do not repeat the same implementation-detail
+assertion at every layer. Synchronize failures at a named durable boundary,
+never a guessed sleep. Any writer test must use a disposable target and check a
+second identical apply.
 
-Follow the commit schedule in [ROADMAP.md](ROADMAP.md). After each complete
-implementation slice, run `pnpm check`, inspect the diff, stage only its
-intended paths, and create a focused local Conventional Commit. Include tests
-and docs with the behavior they describe. Split a growing task into smaller
-passing slices rather than waiting for a whole phase to finish.
+## Packaging and changes
 
-Continue with the next slice after committing. At phase boundaries, also run the
-phase's acceptance scenario. A commit should be a verified recovery point, not a
-snapshot of broken work. Pushing and publishing are separate actions.
+`pnpm build` creates ESM JavaScript, declarations, and source maps in `dist/`.
+`pnpm pack --pack-destination .data` creates an installable release-candidate
+tarball. The package remains private; publishing needs a confirmed registry name
+and separate authorization.
+
+Follow [ROADMAP.md](ROADMAP.md). After each complete slice, run the relevant
+acceptance scenario and `pnpm check`, inspect the diff, stage only intended
+paths, and make a focused Conventional Commit. Include migrations, tests, and
+docs with their behavior. Keep changes recoverable and continue to the next
+slice. Do not bypass failures to create a commit.
+
+Keep the README for new users. Put contracts, tradeoffs, and recovery details in
+[docs/current-behavior.md](docs/current-behavior.md) and its linked guides.

@@ -1,82 +1,92 @@
 # Data Reconciler
 
-Data Reconciler finds records that disagree between two systems. It is for
-developers maintaining integrations where retries and upserts still leave
-missing records, stale values, or conflicting updates.
+Data Reconciler finds records that disagree between two systems, explains each
+difference, and applies only the repairs you explicitly approve. It is a
+TypeScript library and CLI for developers maintaining integrations where retries
+and upserts still leave missing records or stale values.
 
-It matches identities, compares normalized fields, and produces a report with
-the original evidence behind each difference. That gives you something concrete
-to investigate before deciding which system should change.
+You supply adapters and decide which fields each system owns. The engine handles
+identity matching, normalization, checkpoints, conflict reporting, repair
+review, and recovery. Every difference keeps its original source evidence. A
+newer timestamp does not automatically make one system the owner.
 
-The current version is a local dry-run prototype. It includes a TypeScript
-library, a CLI, two commerce adapters, and SQLite checkpoints. Controlled
-repairs and a stable package for integration are planned in the
-[roadmap](ROADMAP.md).
+This is the **1.0 release candidate**, tested against disposable local data. The
+package is private and has not been published to npm. No account, credentials,
+Docker, or external database service is needed to try it.
 
-## Try it locally
+## Try it
 
-You need Node.js 24 or newer and pnpm 11. No accounts, services, or database
-setup are required. SQLite runs locally.
+Use Node.js 24 and pnpm 11:
 
 ```sh
 git clone https://github.com/KleitonBarone/data-reconciler.git
 cd data-reconciler
 pnpm install --frozen-lockfile
-pnpm reconcile
+pnpm dev init-demo --directory .data/demo
+pnpm dev compare --config .data/demo/job.json --store .data/demo/state.sqlite
 ```
 
-The demo compares synthetic orders stored in paged JSON and a JSONL ledger:
+The demo compares inventory in a JSON file with an independent local SQLite
+target. It reports one missing record, one changed record, and two conflicts.
+Neither input changes. Run the comparison again to resume from saved checkpoints
+with zero new records read.
 
-```text
-Read 6 source and 4 target records
-Results: 1 equal, 2 missing, 1 changed, 2 conflicting
-```
+Use a new demo directory if that one already exists. For JSON with all evidence,
+add `--format json`; use `--format ndjson` to process results incrementally.
+SQLite state and reports remain in the store you chose.
 
-`equal` means the comparable fields match. `missing` names the side without the
-record. `changed` reports differing values and which timestamp is newer.
-`conflicting` flags missing identifiers, duplicate identities, or differing
-values with equal timestamps. A newer timestamp does not establish ownership.
+## Integrate it
 
-The terminal lists differences. JSON includes field values, source evidence,
-adapter versions, and checkpoints:
+Build and pack a local artifact, then install that tarball in your application:
 
 ```sh
-pnpm reconcile --format json
+pnpm build
+pnpm pack --pack-destination .data
+# In your application:
+pnpm add /path/to/data-reconciler-1.0.0-rc.1.tgz
 ```
 
-State and reports live in `.data/reconciler.sqlite`. Run the command again to
-resume. Unchanged fixtures produce the same classifications with zero new
-records read. To start an independent run, choose a new `--store` path.
+Use the same job configuration from a worker:
 
-## Use your own data
+```ts
+import { compare, loadJob, SqliteReconciliationStore } from "data-reconciler";
 
-The CLI currently accepts the two included commerce formats:
-
-```sh
-pnpm reconcile --source fixtures/source-pages.json --target fixtures/target-ledger.jsonl --store .data/my-comparison.sqlite
+const job = await loadJob(".data/demo/job.json");
+const store = new SqliteReconciliationStore(":memory:");
+try {
+  const report = await compare(job, { store });
+  console.log(JSON.stringify(report.summary));
+} finally {
+  store.close();
+}
 ```
 
-These are examples of specific schemas, not arbitrary JSON importers. The
-[current API and adapter guide](docs/current-behavior.md) explains the formats,
-library entry point, evidence, and known limits. The package is private and has
-not been published to npm. Custom adapters currently require using the library;
-the CLI has no adapter configuration loader yet.
+Replace `:memory:` with a file to retain progress. The
+[integration guide](docs/current-behavior.md) covers configuration and public
+APIs. Use JSON/JSONL field projections for local data, or write a
+[typed adapter](docs/adapters.md) for your own API.
 
-Dry run is the only mode. The adapters read files, and `--apply` fails before
-creating a store. Local checkpoints and reports are written, but input records
-are unchanged. Use separate stores for separate datasets because current
-checkpoints do not identify the input files.
+## Approve repairs separately
 
-## Develop and integrate
+Comparison is always a dry run. Review a saved plan, accept its exact digest and
+bounds, then run the explicit apply command. The
+[repair walkthrough](docs/repairs.md) explains ownership, approval, interrupted
+execution, and repeat application without duplicate effects.
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the watch loop and end-to-end
-checks. Run `pnpm check` for formatting, linting, type checking, integration
-tests, and tests of the compiled CLI.
+The bundled writer supports local SQLite creates and updates. External systems
+remain comparison-only unless their writer can prove atomic preconditions and
+durable deduplication. Automatic deletion, bidirectional writes, hosted
+scheduling, and vendor account connectors are outside this release.
 
-The [completion plan](ROADMAP.md) defines the path to a stable library and CLI,
-including configurable normalization, accepted repair plans, idempotent writes,
-recovery, and package-consumer verification.
+See [replay](docs/replay.md), [recovery](docs/recovery.md),
+[processing limits](docs/performance.md), and
+[compatibility](docs/compatibility.md) before using application data.
 
-## License
+## Develop
 
-[MIT](LICENSE)
+[CONTRIBUTING.md](CONTRIBUTING.md) describes the watch loop. `pnpm check` runs
+formatting, linting, types, focused tests, crash scenarios, and
+installed-package verification. Release status is tracked in the
+[roadmap](ROADMAP.md) and [changelog](CHANGELOG.md).
+
+[MIT licensed](LICENSE).

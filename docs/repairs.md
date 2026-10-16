@@ -1,7 +1,9 @@
 # Review repair plans
 
-Comparison is always a dry run. A classification is not permission to write.
-Jobs must declare `repair` before planning:
+Comparison is always a dry run. A classification is not permission to write. Use
+the same `--store` on every command. Examples here use the default store; after
+the README trial, add `--store .data/demo/state.sqlite` throughout. Jobs must
+declare `repair` before planning:
 
 ```json
 {

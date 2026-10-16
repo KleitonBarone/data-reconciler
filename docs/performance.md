@@ -10,6 +10,10 @@ Measured on this Windows development machine with Node.js 24.20.0:
 | ---------------- | ------- | ------------------------ | ---------- | ----------------- |
 | 100,000          | 14.93 s | 13,397                   | 268.16 MiB | 323,084,288 bytes |
 
+The final candidate, including evidence byte-budget checks, measured 15.72 s,
+12,720 delivered records/second, 259.65 MiB peak RSS, and a 323,149,824-byte
+database on the same machine. Both measurements are below the release budgets.
+
 The benchmark fails above 180 seconds or 512 MiB peak RSS. CI's named
 performance runner is `ubuntu-latest`, Node.js 24. These are acceptance budgets,
 not promised throughput for arbitrary providers. Keep the JSON measurement
@@ -27,7 +31,10 @@ one million delivered records, 10,000 pages, 1,000 owners per identity, and
 1,000 conflicting revisions per record. JSON nesting is limited to 64 levels.
 Local input files are limited to 32 MiB, HTTP pages to 8 MiB. Terminal output
 shows at most 100 differences; JSON and NDJSON exports stream complete results.
-These limits reject excess work rather than silently dropping evidence.
+These limits reject excess work rather than silently dropping evidence. Indexed
+identity groups also enforce a 16 MiB per-side evidence budget, and a repair
+plan carries at most 16 MiB of operation evidence. Excess work fails before
+approval or dispatch rather than dropping records from a plan.
 
 Regular checks exercise 16 seeded delivery/page permutations. The separate
 performance workflow runs 256 seeds and saves its JSON test report alongside the
