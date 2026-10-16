@@ -32,6 +32,8 @@
     "docs",
     "LICENSE",
     "README.md",
+    "CONTRIBUTING.md",
+    "ROADMAP.md",
     "CHANGELOG.md"
   ],
   "scripts": {

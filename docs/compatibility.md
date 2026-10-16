@@ -63,6 +63,10 @@ resolves them independently of the current working directory. The independent
 consumer test compiles public imports and rehearses the complete workflow with
 no runtime dev dependencies.
 
+The tarball includes the linked contributor guide and roadmap. Package tests
+resolve relative links in every shipped Markdown file from the installed
+artifact. CI configuration and tests stay in the repository.
+
 `private: true` remains deliberate. The provisional name `data-reconciler` is
 not a claim to an npm registry name. Confirm registry ownership/name, review the
 candidate, and authorize publication separately before removing that guard. This

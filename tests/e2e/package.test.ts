@@ -7,9 +7,10 @@ import {
   copyFile,
   rm,
   readdir,
+  access,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { expect, it } from "vitest";
 import { objectValue, stringValue } from "../../src/core/validation.js";
 
@@ -46,6 +47,36 @@ async function verifyMaps(
         const target = resolve(dirname(path), stringValue(source));
         expect(target.startsWith(packageRoot)).toBe(true);
         await readFile(target);
+      }
+    }
+  }
+}
+
+async function verifyDocumentationLinks(
+  directory: string,
+  packageRoot: string,
+): Promise<void> {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) await verifyDocumentationLinks(path, packageRoot);
+    else if (entry.name.endsWith(".md")) {
+      const markdown = await readFile(path, "utf8");
+      for (const match of markdown.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
+        const link = match[1]?.split("#")[0];
+        if (!link || /^[a-z]+:/iu.test(link)) continue;
+        const target = resolve(dirname(path), decodeURIComponent(link));
+        const local = relative(packageRoot, target);
+        expect(
+          !local.startsWith("..") && !isAbsolute(local),
+          "Documentation link leaves the package: " + link,
+        ).toBe(true);
+        await expect(
+          access(target),
+          "Broken installed link in " +
+            relative(packageRoot, path) +
+            ": " +
+            link,
+        ).resolves.toBeUndefined();
       }
     }
   }
@@ -156,6 +187,7 @@ it("installs a release candidate and rehearses the complete workflow without rep
     const shipped = await readdir(packageRoot);
     expect(shipped).not.toContain("tests");
     expect(shipped).not.toContain(".github");
+    await verifyDocumentationLinks(packageRoot, packageRoot);
     await verifyMaps(join(packageRoot, "dist"), packageRoot);
     expect(
       pnpm(["exec", "data-reconciler", "--help"], runtime).stdout,

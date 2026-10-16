@@ -9,10 +9,12 @@ slice, commit it locally, then continue to the next slice.
 The implemented candidate is `1.0.0-rc.1`. Local gates cover the complete
 installed workflow, including a concurrent target change, process termination,
 resume, repeat apply, replay, backup, and unresolved conflicts. The Linux and
-Windows [CI matrix](.github/workflows/ci.yml) and separate
-[performance gate](.github/workflows/performance.yml) must pass on the pushed
-commit before accepting it. Registry-name confirmation and publication remain
-separate release actions; the package stays private.
+Windows
+[CI matrix](https://github.com/KleitonBarone/data-reconciler/blob/main/.github/workflows/ci.yml)
+and separate
+[performance gate](https://github.com/KleitonBarone/data-reconciler/blob/main/.github/workflows/performance.yml)
+must pass on the pushed commit before accepting it. Registry-name confirmation
+and publication remain separate release actions; the package stays private.
 
 ## Release review follow-up
 
@@ -71,7 +73,7 @@ the final revision. Keep registry publication separate.
 - [x] Reject fresh-key creates against existing records in writer conformance,
       and check unchanged records and absent receipts after rejection. Commit
       and push `fix(adapters): reject unsafe creates in writer conformance`.
-- [ ] Include linked project documentation in the tarball and verify relative
+- [x] Include linked project documentation in the tarball and verify relative
       links from the installed package. Commit and push
       `fix(package): include linked project documentation`.
 - [ ] Add a worked normalization guide for projected records and verify its

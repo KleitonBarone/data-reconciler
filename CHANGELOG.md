@@ -8,6 +8,8 @@
 - Extend writer conformance to reject fresh-key creates against existing records
   using a current checkpoint, and verify unchanged state and no success receipt
   after rejection.
+- Include the contributor guide and roadmap in the tarball, with
+  installed-package checks for relative documentation links.
 
 - Block repairs for every identity claimed by ambiguous current revisions,
   including operations in reports and accepted plans saved before the fix.

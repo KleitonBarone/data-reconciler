@@ -4,6 +4,9 @@ Use Node.js 24 and pnpm 11. The repository is one strict TypeScript ESM package
 with real SQLite tests and synthetic data. No services or credentials are
 needed.
 
+Run development commands from a repository checkout. Installed tarballs include
+this guide and the roadmap, but omit tests and development configuration.
+
 ## Short loop
 
 ```sh
