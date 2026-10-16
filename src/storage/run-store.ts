@@ -90,17 +90,27 @@ export class SqliteRunStore implements DurableStore {
       .run(this.jobId, owner);
   }
   begin(runId: string, at: string): void {
-    this.assertOwner(runId);
-    this.db
-      .prepare(
-        "UPDATE run_state SET status='interrupted' WHERE job_id=? AND status IN ('reading','comparing')",
+    this.transaction(() => {
+      this.assertOwner(runId);
+      if (
+        this.db.prepare("SELECT 1 FROM run_state WHERE run_id=?").get(runId) !==
+        undefined
       )
-      .run(this.jobId);
-    this.db
-      .prepare(
-        "INSERT INTO run_state(run_id, job_id, status, started_at) VALUES (?, ?, 'reading', ?)",
-      )
-      .run(runId, this.jobId, at);
+        throw new ReconciliationError(
+          "invalid_config",
+          "Run ID already exists; choose a new run ID",
+        );
+      this.db
+        .prepare(
+          "INSERT INTO run_state(run_id, job_id, status, started_at) VALUES (?, ?, 'reading', ?)",
+        )
+        .run(runId, this.jobId, at);
+      this.db
+        .prepare(
+          "UPDATE run_state SET status='interrupted' WHERE job_id=? AND run_id<>? AND status IN ('reading','comparing')",
+        )
+        .run(this.jobId, runId);
+    });
   }
   page(input: Parameters<DurableStore["page"]>[0]): void {
     this.transaction(() => {
@@ -239,9 +249,10 @@ export class SqliteRunStore implements DurableStore {
     });
   }
   fail(runId: string, message: string): void {
+    this.assertOwner(runId);
     this.db
       .prepare(
-        "UPDATE run_state SET status='failed', error=? WHERE run_id=? AND job_id=?",
+        "UPDATE run_state SET status='failed', error=? WHERE run_id=? AND job_id=? AND status IN ('reading','comparing')",
       )
       .run(message, runId, this.jobId);
   }

@@ -19,6 +19,11 @@ process leaves a claim that the next process can reclaim after verifying that
 the owner PID no longer exists. A live owner is never evicted. Stores are for
 processes on one machine, not shared network filesystems or distributed workers.
 
+Run IDs must be unique across the store, including different jobs. An injected
+ID collision returns `invalid_config` before adapter reads and leaves completed
+reports and unfinished runs unchanged. Retry with a fresh run ID. A late failure
+cannot change a completed report into a failed run.
+
 Append-only inputs can resume normally. Replacement, truncation, normalization
 changes, and adapter schema changes require an explicit new generation:
 

@@ -1,6 +1,10 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { compare, defineJob, jobFingerprint } from "../src/core/job.js";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { verifyReadAdapter, defineAdapter } from "../src/contracts/helpers.js";
 import { createCheckpoint } from "../src/contracts/adapter.js";
 import { JsonPageCommerceAdapter } from "../src/adapters/json-page-adapter.js";
@@ -21,6 +25,79 @@ function job(id = "commerce") {
 }
 
 describe("application integration", () => {
+  it.each(["commerce", "other"])(
+    "preserves completed reports and active runs when %s reuses an ID",
+    async (secondJobId) => {
+      const directory = mkdtempSync(
+        join(tmpdir(), "reconciler-run-collision-"),
+      );
+      const path = join(directory, "state.sqlite");
+      const store = new SqliteReconciliationStore(path);
+      const db = new DatabaseSync(path, { readOnly: true });
+      try {
+        const original = await compare(job(), {
+          store,
+          createRunId: () => "existing",
+        });
+        const durable = store.forJob("commerce", jobFingerprint(job())).durable;
+        durable.acquire("unfinished");
+        durable.begin("unfinished", "2026-01-01T00:00:00Z");
+        durable.release("unfinished");
+        const before = db
+          .prepare("SELECT * FROM run_state ORDER BY run_id")
+          .all();
+        const results = JSON.stringify([
+          ...store.durable.results(original.runId),
+        ]);
+        const checkpoints = db
+          .prepare("SELECT * FROM checkpoints ORDER BY adapter_id")
+          .all();
+        const events: string[] = [];
+        const collision = compare(job(secondJobId), {
+          store,
+          createRunId: () => "existing",
+          onEvent: (event) => {
+            events.push(event.type);
+          },
+        });
+        await expect(collision).rejects.toThrow();
+        expect(
+          db.prepare("SELECT * FROM run_state ORDER BY run_id").all(),
+        ).toEqual(before);
+        expect(
+          db.prepare("SELECT * FROM checkpoints ORDER BY adapter_id").all(),
+        ).toEqual(checkpoints);
+        expect(store.durable.getRun(original.runId)).toEqual(original);
+        expect(JSON.stringify([...store.durable.results(original.runId)])).toBe(
+          results,
+        );
+        expect(events).not.toContain("run_failed");
+        await expect(collision).rejects.toMatchObject({
+          code: "invalid_config",
+        });
+        const fresh = await compare(job(secondJobId), {
+          store,
+          createRunId: () => "fresh",
+        });
+        expect(fresh.summary).toEqual(original.summary);
+        expect(store.durable.getRun(original.runId)).toEqual(original);
+        durable.acquire("existing");
+        try {
+          durable.fail(
+            "existing",
+            "Late failure must not rewrite a completed report",
+          );
+        } finally {
+          durable.release("existing");
+        }
+        expect(store.durable.getRun(original.runId)).toEqual(original);
+      } finally {
+        db.close();
+        store.close();
+        rmSync(directory, { recursive: true, force: true });
+      }
+    },
+  );
   it("isolates jobs and rejects policy changes within an existing generation", async () => {
     const store = new SqliteReconciliationStore(":memory:");
     try {

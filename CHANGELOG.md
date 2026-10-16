@@ -9,6 +9,8 @@
 - Keep earlier uncertain writes unknown through receipt-lookup outages,
   cancellation, and rejected retries. Recover crash-left intents through target
   receipts or durable deduplication without repeating completed effects.
+- Reject duplicate run IDs before changing run state. Preserve completed reports
+  and unfinished runs when comparison or replay cannot create a new run.
 
 ## 1.0.0-rc.1
 

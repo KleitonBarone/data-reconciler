@@ -44,8 +44,10 @@ export async function replay(
     const scoped = options.store.forJob(jobId, fingerprint);
     const durable = scoped.durable;
     durable.acquire(runId);
+    let started = false;
     try {
       durable.begin(runId, (options.now?.() ?? new Date()).toISOString());
+      started = true;
       const counts = { source: 0, target: 0 };
       const checkpoints = {
         source: createCheckpoint(job.source.descriptor, "replay:0"),
@@ -130,7 +132,8 @@ export async function replay(
       durable.finish(report);
       return report;
     } catch (error) {
-      durable.fail(runId, "Replay failed; original evidence is unchanged");
+      if (started)
+        durable.fail(runId, "Replay failed; original evidence is unchanged");
       throw error;
     } finally {
       durable.release(runId);

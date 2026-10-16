@@ -130,6 +130,7 @@ export async function compare(
     }
   };
   durable.acquire(runId);
+  let started = false;
   try {
     const before = {
       source: store.getCheckpoint(job.source.descriptor.id),
@@ -139,6 +140,7 @@ export async function compare(
     const recordsRead = { source: 0, target: 0 };
     let pages = 0;
     durable.begin(runId, (options.now?.() ?? new Date()).toISOString());
+    started = true;
     emit({ type: "run_started", jobId: job.id, runId });
     for (const side of ["source", "target"] as const) {
       const adapter = job[side];
@@ -270,9 +272,13 @@ export async function compare(
     emit({ type: "run_completed", jobId: job.id, runId });
     return report;
   } catch (error) {
-    durable.fail(runId, error instanceof Error ? error.message : String(error));
+    if (started)
+      durable.fail(
+        runId,
+        error instanceof Error ? error.message : String(error),
+      );
     store.recordFailure(error);
-    emit({ type: "run_failed", jobId: job.id, runId });
+    if (started) emit({ type: "run_failed", jobId: job.id, runId });
     if (error instanceof ReconciliationError) throw error;
     throw new ReconciliationError(
       "adapter_error",

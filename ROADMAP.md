@@ -27,7 +27,7 @@ this follow-up. Verify both CI workflows on the final pushed revision.
       Commit and push `fix(core): block repairs for every ambiguous identity`.
 - [x] Preserve unknown writes through lookup failures and crash recovery. Commit
       and push `fix(repairs): preserve uncertainty across recovery attempts`.
-- [ ] Reject run-ID collisions without changing existing runs or reports. Commit
+- [x] Reject run-ID collisions without changing existing runs or reports. Commit
       and push `fix(storage): preserve runs when IDs collide`.
 - [ ] Return the original immutable acceptance for identical approval retries.
       Commit and push `fix(plans): make identical approval retries idempotent`.
