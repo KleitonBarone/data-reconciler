@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { compare, defineJob, jobFingerprint } from "../src/core/job.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,6 +11,7 @@ import { JsonPageCommerceAdapter } from "../src/adapters/json-page-adapter.js";
 import { JsonlLedgerCommerceAdapter } from "../src/adapters/jsonl-ledger-adapter.js";
 import { commercePolicy } from "../src/adapters/commerce-policy.js";
 import { SqliteReconciliationStore } from "../src/storage/sqlite-store.js";
+import type { NormalizationPolicy } from "../src/core/policy.js";
 
 function job(id = "commerce") {
   return defineJob({
@@ -25,6 +26,62 @@ function job(id = "commerce") {
 }
 
 describe("application integration", () => {
+  const invalidPolicies: readonly NormalizationPolicy[] = [
+    { version: "" },
+    { version: "custom.v1", fields: { label: { trim: true } } },
+    { version: "custom.v1", ignore: ["label"] },
+    { version: "custom.v1", unorderedArrays: ["/tags~2"] },
+  ];
+  it.each(invalidPolicies)(
+    "rejects invalid normalization before empty reads: %j",
+    async (normalization) => {
+      const read = vi.fn();
+      const endpoint = (id: string) => {
+        const descriptor = {
+          id,
+          displayName: id,
+          datasetId: "synthetic:" + id,
+          contractVersion: 1,
+          adapterVersion: "1",
+          schemaVersion: "1",
+        } as const;
+        return {
+          descriptor,
+          readPage() {
+            read();
+            return Promise.resolve({
+              records: [],
+              hasMore: false,
+              nextCheckpoint: createCheckpoint(descriptor, "0"),
+            });
+          },
+        };
+      };
+      const candidate = {
+        id: "invalid-policy",
+        source: endpoint("source"),
+        target: endpoint("target"),
+        normalization,
+      };
+      const store = new SqliteReconciliationStore(":memory:");
+      try {
+        expect(() => defineJob(candidate)).toThrow(
+          expect.objectContaining({ code: "invalid_config" }),
+        );
+        await expect(compare(candidate, { store })).rejects.toMatchObject({
+          code: "invalid_config",
+        });
+        expect(read).not.toHaveBeenCalled();
+        expect(store.inspect()).toMatchObject({
+          jobs: [],
+          runs: [],
+          claims: [],
+        });
+      } finally {
+        store.close();
+      }
+    },
+  );
   it.each(["commerce", "other"])(
     "preserves completed reports and active runs when %s reuses an ID",
     async (secondJobId) => {

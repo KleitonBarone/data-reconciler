@@ -19,7 +19,9 @@ code. Never load an untrusted module.
 A job declares `id`, `source`, `target`, and optionally `normalization`,
 `repair`, `runtime`, `pageSize`, and explicit `datasets`. Dataset identities and
 distinct stable adapter IDs are required. `defineJob` preserves inferred types
-and validates the job.
+and validates the job, including normalization versions, text rules, and JSON
+Pointers. Library jobs and loaded configurations reject invalid normalization
+with `invalid_config` before reading either adapter, including empty datasets.
 
 Bundled endpoint types:
 

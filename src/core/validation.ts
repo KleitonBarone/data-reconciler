@@ -147,10 +147,10 @@ export function policyValue(value: unknown): NormalizationPolicy {
       mode !== "lower" &&
       mode !== "upper"
     )
-      throw new Error("Invalid case rule");
+      throw new ReconciliationError("invalid_config", "Invalid case rule");
     for (const key of ["trim", "unicode"])
       if (raw[key] !== undefined && typeof raw[key] !== "boolean")
-        throw new Error(`Invalid ${key} rule`);
+        throw new ReconciliationError("invalid_config", `Invalid ${key} rule`);
     return {
       ...(raw.trim === undefined ? {} : { trim: raw.trim === true }),
       ...(raw.unicode === undefined ? {} : { unicode: raw.unicode === true }),
@@ -166,7 +166,10 @@ export function policyValue(value: unknown): NormalizationPolicy {
     );
   const paths = (value: unknown): string[] => {
     if (!Array.isArray(value))
-      throw new Error("Field selectors must be an array");
+      throw new ReconciliationError(
+        "invalid_config",
+        "Field selectors must be an array",
+      );
     return value.map((value) => stringValue(value));
   };
   const policy: NormalizationPolicy = {
@@ -187,6 +190,9 @@ export function policyValue(value: unknown): NormalizationPolicy {
     ...(policy.unorderedArrays ?? []),
   ])
     if (!/^\/(?:[^~]|~[01])*$/u.test(path))
-      throw new Error(`Invalid JSON Pointer: ${path}`);
+      throw new ReconciliationError(
+        "invalid_config",
+        `Invalid JSON Pointer: ${path}`,
+      );
   return policy;
 }

@@ -7,7 +7,12 @@ import { jsonPolicy, policyJson, type NormalizationPolicy } from "./policy.js";
 import type { ReconciliationStore, RunSummary } from "./store.js";
 import { compareGroups } from "./comparison.js";
 import { normalizeRecord } from "./normalize.js";
-import { checkpointValue, recordValue, jsonValue } from "./validation.js";
+import {
+  checkpointValue,
+  recordValue,
+  jsonValue,
+  policyValue,
+} from "./validation.js";
 import { validateRuntime, withRetry, type RuntimePolicy } from "./runtime.js";
 import { repairPolicyValue, type RepairPolicy } from "./ownership.js";
 
@@ -50,6 +55,7 @@ export type CompareOptions = {
 
 export function defineJob<const T extends ReconciliationJob>(job: T): T {
   validateRuntime(job.runtime);
+  if (job.normalization !== undefined) policyValue(job.normalization);
   if (job.repair !== undefined) repairPolicyValue(job.repair);
   if (job.id.trim() === "")
     throw new ReconciliationError("invalid_config", "Job ID is required");

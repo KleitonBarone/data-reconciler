@@ -56,6 +56,32 @@ and the
 [performance/generated workflow](https://github.com/KleitonBarone/data-reconciler/actions/runs/38933637682).
 The final documentation push must also pass both workflows.
 
+## Documentation and quality review follow-up
+
+The final review found two API correctness gaps, missing packaged documentation,
+and an incomplete normalization guide. Complete these slices in order. Add
+focused failing-before coverage for the code and packaging fixes, run
+`pnpm check` before implementation commits, and push each verified commit to
+`origin/main` as authorized for this follow-up. Both CI workflows must pass on
+the final revision. Keep registry publication separate.
+
+- [x] Validate normalization policies in library jobs before any adapter reads.
+      Commit and push
+      `fix(core): validate normalization before reading adapters`.
+- [ ] Reject fresh-key creates against existing records in writer conformance,
+      and check unchanged records and absent receipts after rejection. Commit
+      and push `fix(adapters): reject unsafe creates in writer conformance`.
+- [ ] Include linked project documentation in the tarball and verify relative
+      links from the installed package. Commit and push
+      `fix(package): include linked project documentation`.
+- [ ] Add a worked normalization guide for projected records and verify its
+      identity, field, ignore, array, and evidence behavior through public
+      exports. Commit and push
+      `docs: demonstrate normalization of projected records`.
+- [ ] Record final checks, commit and push
+      `docs: record final documentation and quality verification`, then verify
+      Linux/Windows CI, performance CI, and a clean worktree on that revision.
+
 ## Product and finish line
 
 Data Reconciler helps integration developers find and explain drift, then apply
