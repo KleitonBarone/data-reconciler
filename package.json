@@ -45,9 +45,9 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "reconcile": "tsx src/cli.ts reconcile",
-    "test": "vitest run --exclude tests/e2e/**",
+    "test": "vitest run --exclude \"tests/e2e/**\"",
     "test:e2e": "pnpm build && vitest run tests/e2e",
-    "test:watch": "vitest --exclude tests/e2e/**",
+    "test:watch": "vitest --exclude \"tests/e2e/**\"",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

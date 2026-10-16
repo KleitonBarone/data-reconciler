@@ -1,4 +1,5 @@
 {
+  "endOfLine": "lf",
   "proseWrap": "always",
   "trailingComma": "all"
 }
