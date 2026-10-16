@@ -91,6 +91,9 @@ export class SqliteReconciliationStore implements ReconciliationStore {
       CREATE INDEX IF NOT EXISTS observations_identity
         ON observations (adapter_id, identity_key);
 
+      CREATE INDEX IF NOT EXISTS observations_match
+        ON observations (adapter_id, identity_key, record_id);
+
       CREATE TABLE IF NOT EXISTS reports (
         run_id TEXT PRIMARY KEY,
         generated_at TEXT NOT NULL,

@@ -15,3 +15,5 @@ export * from "./adapters/json-file-adapter.js";
 export * from "./config.js";
 export type { RunSummary, DurableStore } from "./core/store.js";
 export * from "./reporters/export.js";
+export * from "./core/runtime.js";
+export * from "./adapters/http-json-adapter.js";

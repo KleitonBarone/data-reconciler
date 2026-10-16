@@ -19,6 +19,8 @@ import {
   stringValue,
 } from "./core/validation.js";
 import { ReconciliationError } from "./core/errors.js";
+import { HttpJsonAdapter } from "./adapters/http-json-adapter.js";
+import { type RuntimePolicy, validateRuntime } from "./core/runtime.js";
 
 export async function loadJob(path: string): Promise<ReconciliationJob> {
   const absolute = resolve(path);
@@ -55,6 +57,13 @@ export async function loadJob(path: string): Promise<ReconciliationJob> {
           },
         };
       }
+      if (endpoint.type === "http-json")
+        return new HttpJsonAdapter({
+          id: stringValue(endpoint.id),
+          url: stringValue(endpoint.url),
+          datasetId: stringValue(endpoint.datasetId),
+          schemaVersion: stringValue(endpoint.schemaVersion),
+        });
       const input = resolve(
         dirname(absolute),
         stringValue(endpoint.path, "adapter path"),
@@ -86,6 +95,9 @@ export async function loadJob(path: string): Promise<ReconciliationJob> {
       ...(raw.pageSize === undefined
         ? {}
         : { pageSize: integerValue(raw.pageSize, "page size", 1) }),
+      ...(raw.runtime === undefined
+        ? {}
+        : { runtime: runtimeValue(raw.runtime) }),
       ...(datasets === undefined
         ? {}
         : {
@@ -103,4 +115,13 @@ export async function loadJob(path: string): Promise<ReconciliationJob> {
       { cause: error },
     );
   }
+}
+
+function runtimeValue(value: unknown): RuntimePolicy {
+  const raw = objectValue(value, "runtime policy");
+  const values = Object.fromEntries(
+    Object.entries(raw).map(([key, value]) => [key, integerValue(value, key)]),
+  );
+  validateRuntime(values);
+  return values;
 }

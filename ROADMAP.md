@@ -164,11 +164,11 @@ Depends on B. Keep the API provisional until the final package gate in H.
       predictably. Support declarative field projections for the included
       formats and callbacks for application-specific mapping, without creating
       an ETL language.
-- [ ] C6. Add runnable examples for local files, embedding the library in a
+- [x] C6. Add runnable examples for local files, embedding the library in a
       worker, and writing a custom adapter. Include a loopback HTTP adapter
       example to exercise pagination, 429 responses, timeouts, and outages
       without accounts.
-- [ ] C7. Define CLI help, JSON schema versions, output destinations, and stable
+- [x] C7. Define CLI help, JSON schema versions, output destinations, and stable
       exit codes for success, drift under an explicit check mode, invalid
       config, conflicts, and operational failure. Keep JSON on stdout and
       diagnostics on stderr. Define a streamed report format here; implement
@@ -284,7 +284,7 @@ Depends on F and extends its failure scenarios.
       reports. Replaying repair operations reuses their original deduplication
       keys and still requires the original valid authorization or fresh
       acceptance.
-- [ ] G2. Add bounded timeouts, retry budgets, page/record limits, cancellation,
+- [x] G2. Add bounded timeouts, retry budgets, page/record limits, cancellation,
       and backoff that honors provider retry hints. Keep provider-specific rate
       limits in adapters. Use controlled time and synchronization in tests.
 - [ ] G3. Emit run, page, difference, conflict, checkpoint, repair, and retry

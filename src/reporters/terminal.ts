@@ -12,8 +12,15 @@ export function formatTerminalReport(
     `Results: ${report.summary.equal} equal, ${report.summary.missing} missing, ${report.summary.changed} changed, ${report.summary.conflicting} conflicting`,
   ];
 
+  let shown = 0;
   for (const result of report.results) {
     if (result.classification === "equal") continue;
+    if (shown++ === 100) {
+      lines.push(
+        "Showing the first 100 differences. Export JSON or NDJSON for all evidence.",
+      );
+      break;
+    }
     const identity = result.identityKey ?? recordLabel(result);
     if (result.classification === "missing") {
       lines.push(`MISSING     ${identity} on ${result.missingSide}`);

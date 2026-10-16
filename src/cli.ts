@@ -178,7 +178,7 @@ function usage(): string {
     "  --target <path>     Northstar JSONL ledger",
     "  --store <path>      SQLite state and report store",
     "  --page-size <count> Incremental read page size",
-    "  --format <format>   human or json",
+    "  --format <format>   human, json, or ndjson",
     "  --dry-run           accepted for clarity; already enforced",
     "  --apply             rejected; repair writes do not exist",
   ].join("\n");

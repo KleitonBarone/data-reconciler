@@ -10,6 +10,7 @@ import type { ReconciliationResult } from "./model.js";
 import { classifyRecords } from "./classify.js";
 import { normalizeRecord } from "./normalize.js";
 import { checkpointValue, recordValue, jsonValue } from "./validation.js";
+import { validateRuntime, withRetry, type RuntimePolicy } from "./runtime.js";
 
 export type ReconciliationJob = {
   readonly id: string;
@@ -18,13 +19,23 @@ export type ReconciliationJob = {
   readonly normalization?: NormalizationPolicy;
   readonly pageSize?: number;
   readonly datasets?: { readonly source: string; readonly target: string };
+  readonly runtime?: RuntimePolicy;
 };
 export type RunEvent = {
-  readonly type: "run_started" | "page_read" | "run_completed" | "run_failed";
+  readonly type:
+    | "run_started"
+    | "page_read"
+    | "checkpoint"
+    | "difference"
+    | "conflict"
+    | "retry"
+    | "run_completed"
+    | "run_failed";
   readonly jobId: string;
   readonly runId: string;
   readonly side?: "source" | "target";
   readonly records?: number;
+  readonly attempt?: number;
 };
 export type CompareOptions = {
   readonly store: ReconciliationStore;
@@ -35,6 +46,7 @@ export type CompareOptions = {
 };
 
 export function defineJob<const T extends ReconciliationJob>(job: T): T {
+  validateRuntime(job.runtime);
   if (job.id.trim() === "")
     throw new ReconciliationError("invalid_config", "Job ID is required");
   if (job.source.descriptor.id === job.target.descriptor.id)
@@ -101,6 +113,14 @@ export async function compare(
   const store = options.store.forJob(job.id, fingerprint);
   const runId = options.createRunId?.() ?? randomUUID();
   const durable = store.durable;
+  const emit = (event: RunEvent) => {
+    // Diagnostic hooks cannot invalidate already committed work.
+    try {
+      options.onEvent?.(event);
+    } catch {
+      /* Observer failures are isolated. */
+    }
+  };
   durable.acquire(runId);
   try {
     const before = {
@@ -111,23 +131,32 @@ export async function compare(
     const recordsRead = { source: 0, target: 0 };
     let pages = 0;
     durable.begin(runId, (options.now?.() ?? new Date()).toISOString());
-    options.onEvent?.({ type: "run_started", jobId: job.id, runId });
+    emit({ type: "run_started", jobId: job.id, runId });
     for (const side of ["source", "target"] as const) {
       const adapter = job[side];
       let checkpoint = before[side];
       const seen = new Set<string>();
       for (;;) {
         checkCancelled(options.signal);
-        if (++pages > 10000)
+        if (++pages > (job.runtime?.maxPages ?? 10000))
           throw new ReconciliationError(
             "limit_exceeded",
-            "Run exceeded 10000 pages",
+            "Run exceeded its page limit",
           );
-        const page = await adapter.readPage({
-          checkpoint,
-          limit: job.pageSize ?? 100,
-          ...(options.signal === undefined ? {} : { signal: options.signal }),
-        });
+        const page = await withRetry(
+          (signal) =>
+            adapter.readPage({
+              checkpoint,
+              limit: job.pageSize ?? 100,
+              signal,
+            }),
+          {
+            ...(job.runtime === undefined ? {} : { policy: job.runtime }),
+            ...(options.signal === undefined ? {} : { signal: options.signal }),
+            onRetry: (attempt) =>
+              emit({ type: "retry", jobId: job.id, runId, side, attempt }),
+          },
+        );
         checkCancelled(options.signal);
         if (
           typeof page.hasMore !== "boolean" ||
@@ -156,10 +185,13 @@ export async function compare(
           }
         });
         recordsRead[side] += records.length;
-        if (recordsRead.source + recordsRead.target > 1000000)
+        if (
+          recordsRead.source + recordsRead.target >
+          (job.runtime?.maxRecords ?? 1000000)
+        )
           throw new ReconciliationError(
             "limit_exceeded",
-            "Run exceeded one million records",
+            "Run exceeded its record limit",
           );
         if (
           page.hasMore &&
@@ -180,7 +212,8 @@ export async function compare(
         });
         checkpoint = next;
         after[side] = next;
-        options.onEvent?.({
+        emit({ type: "checkpoint", jobId: job.id, runId, side });
+        emit({
           type: "page_read",
           jobId: job.id,
           runId,
@@ -206,6 +239,15 @@ export async function compare(
       for (const result of classifyRecords(group.source, group.target)) {
         summary.total++;
         summary[result.classification]++;
+        if (result.classification !== "equal")
+          emit({
+            type:
+              result.classification === "conflicting"
+                ? "conflict"
+                : "difference",
+            jobId: job.id,
+            runId,
+          });
         batch.push(result);
       }
       if (batch.length >= 250) {
@@ -238,12 +280,12 @@ export async function compare(
     };
     checkCancelled(options.signal);
     durable.finish(report);
-    options.onEvent?.({ type: "run_completed", jobId: job.id, runId });
+    emit({ type: "run_completed", jobId: job.id, runId });
     return report;
   } catch (error) {
     durable.fail(runId, error instanceof Error ? error.message : String(error));
     store.recordFailure(error);
-    options.onEvent?.({ type: "run_failed", jobId: job.id, runId });
+    emit({ type: "run_failed", jobId: job.id, runId });
     if (error instanceof ReconciliationError) throw error;
     throw new ReconciliationError(
       "adapter_error",
