@@ -10,10 +10,11 @@ import {
 import { checkpointValue, stringValue } from "../core/validation.js";
 import { ReconciliationError } from "../core/errors.js";
 import { mergeObservations } from "../core/revisions.js";
+import { identityIndexer } from "./identity-store.js";
 
 export function migrateRuns(db: DatabaseSync): void {
   const version = db.prepare("PRAGMA user_version").get()?.user_version;
-  if (typeof version !== "number" || version > 4)
+  if (typeof version !== "number" || version > 5)
     throw new ReconciliationError(
       "incompatible_state",
       "Unsupported SQLite schema version",
@@ -126,6 +127,7 @@ export class SqliteRunStore implements DurableStore {
       const delivery = this.db.prepare(
         "INSERT INTO deliveries(run_id,job_id,snapshot_json) VALUES (?, ?, ?)",
       );
+      const index = identityIndexer(this.db);
       for (const snapshot of input.records) {
         delivery.run(input.runId, this.jobId, JSON.stringify(snapshot));
         const previous = get.get(key, snapshot.recordId);
@@ -142,6 +144,7 @@ export class SqliteRunStore implements DurableStore {
           merged.identityKey,
           JSON.stringify(merged),
         );
+        index(key, merged);
       }
       const cp = input.next;
       this.db
@@ -162,10 +165,10 @@ export class SqliteRunStore implements DurableStore {
   *groups(sourceId: string, targetId: string) {
     const keys = [this.key(sourceId), this.key(targetId)];
     const identities = this.db.prepare(
-      "SELECT DISTINCT identity_key FROM observations WHERE adapter_id IN (?, ?) AND identity_key IS NOT NULL ORDER BY identity_key COLLATE BINARY",
+      "SELECT DISTINCT identity_key FROM observation_identities WHERE adapter_id IN (?, ?) AND identity_key<>'' ORDER BY identity_key COLLATE BINARY",
     );
     const query = this.db.prepare(
-      "SELECT snapshot_json FROM observations WHERE adapter_id=? AND identity_key=? ORDER BY record_id LIMIT 1001",
+      "SELECT o.snapshot_json FROM observation_identities i JOIN observations o ON o.adapter_id=i.adapter_id AND o.record_id=i.record_id WHERE i.adapter_id=? AND i.identity_key=? ORDER BY i.record_id LIMIT 1001",
     );
     const readGroup = (
       key: string,
@@ -193,15 +196,16 @@ export class SqliteRunStore implements DurableStore {
           "limit_exceeded",
           "An identity exceeds the 1000-record ownership limit",
         );
-      yield { source, target };
+      yield { identityKey: stringValue(row.identity_key), source, target };
     }
     for (const row of this.db
       .prepare(
-        "SELECT snapshot_json FROM observations WHERE adapter_id IN (?, ?) AND identity_key IS NULL ORDER BY adapter_id,record_id",
+        "SELECT o.snapshot_json FROM observation_identities i JOIN observations o ON o.adapter_id=i.adapter_id AND o.record_id=i.record_id WHERE i.adapter_id IN (?, ?) AND i.identity_key='' ORDER BY i.adapter_id,i.record_id",
       )
       .iterate(...keys)) {
       const record = decode(stringValue(row.snapshot_json), snapshotValue);
       yield {
+        identityKey: null,
         source: record.side === "source" ? [record] : [],
         target: record.side === "target" ? [record] : [],
       };

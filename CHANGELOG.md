@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Block repairs for every identity claimed by ambiguous current revisions,
+  including operations in reports and accepted plans saved before the fix.
+- Migrate SQLite state to schema 5 with a derived identity-claims index.
+  Preserve checkpoints and historical report, plan, acceptance, and audit JSON.
+
 ## 1.0.0-rc.1
 
 The first complete local workflow is ready for release-candidate verification.

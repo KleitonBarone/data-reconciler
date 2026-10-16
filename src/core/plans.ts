@@ -27,7 +27,29 @@ import {
 } from "./ownership.js";
 import { ReconciliationError } from "./errors.js";
 import { pointerPath } from "./policy.js";
-import type { ReconciliationStore } from "./store.js";
+import type { DurableStore, ReconciliationStore } from "./store.js";
+import { observationIdentities } from "./revisions.js";
+
+/** Scan immutable report evidence with memory bounded by the candidate operation count. */
+export function conflictedIdentities(
+  store: DurableStore,
+  runId: string,
+  candidates: readonly string[],
+): ReadonlySet<string> {
+  const selected = new Set(candidates);
+  const blocked = new Set<string>();
+  if (selected.size === 0) return blocked;
+  for (const result of store.results(runId)) {
+    if (result.classification !== "conflicting") continue;
+    for (const identity of [
+      result.identityKey,
+      ...result.source.flatMap(observationIdentities),
+      ...result.target.flatMap(observationIdentities),
+    ])
+      if (identity !== null && selected.has(identity)) blocked.add(identity);
+  }
+  return blocked;
+}
 
 export type RepairOperation = {
   readonly id: string;
@@ -241,7 +263,17 @@ export function createPlan(
         "Plan exceeds its operation limit; narrow the comparison scope",
       );
   }
-  operations.sort((a, b) => compareText(a.id, b.id));
+  const blocked = conflictedIdentities(
+    scoped.durable,
+    run.runId,
+    operations.map((op) => op.identityKey),
+  );
+  const safeOperations = operations.filter((operation) => {
+    if (!blocked.has(operation.identityKey)) return true;
+    skip("conflicting_revision");
+    return false;
+  });
+  safeOperations.sort((a, b) => compareText(a.id, b.id));
   const body: PlanBody = {
     schemaVersion: "1",
     jobId: job.id,
@@ -250,7 +282,7 @@ export function createPlan(
     createdAt: run.generatedAt,
     expiresAt: new Date(Date.parse(run.generatedAt) + ttl).toISOString(),
     policy,
-    operations,
+    operations: safeOperations,
     skipped: {
       count: Object.values(reasons).reduce((sum, n) => sum + n, 0),
       reasons,

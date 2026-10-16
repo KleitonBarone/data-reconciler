@@ -30,11 +30,19 @@ This keeps the prior observations, reports, and evidence. It does not execute
 repairs. Schema upgrades run transactionally. Unknown future versions and
 malformed stored records fail rather than being silently reinterpreted.
 
-State schema version 4 migrates prototype databases and versions 1 through 3
+State schema version 5 migrates prototype databases and versions 1 through 4
 inside one transaction. Historical JSON bytes are not rewritten. The provisional
 job fingerprint gained explicit ownership during implementation. If an older
 prototype scope cannot resume, retain its store and create a new generation.
 This is a rescan, not repair re-execution. Unknown future versions are refused.
+
+Version 5 backfills identity claims from current observations, including every
+ambiguous revision, without advancing checkpoints. Keep a backup before
+upgrading. Old reports and plans remain available. An old plan whose operations
+touch an identity implicated in its report's conflicts cannot dispatch writes.
+Compare again and review a new plan. If that operation already has recorded
+intent, recovery can resolve a stored target receipt but cannot resend the
+unsafe operation. Retain its audit history and deduplication receipts.
 
 To recover after a target write with an unrecorded acknowledgement, restore the
 latest state backup, keep the target's deduplication database intact, and apply

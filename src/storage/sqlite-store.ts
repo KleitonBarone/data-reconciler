@@ -14,6 +14,7 @@ import { checkpointValue } from "../core/validation.js";
 import { closeSync, openSync } from "node:fs";
 import { migratePlans, SqlitePlanStore } from "./plan-store.js";
 import { migrateRepairs, SqliteRepairStore } from "./repair-store.js";
+import { identityIndexer, migrateIdentities } from "./identity-store.js";
 
 export type CommitFaultHooks = {
   /** Tests use this to prove that SQLite rolls back before checkpoints advance. */
@@ -63,7 +64,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
           "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
         )
         .all();
-      if (typeof version !== "number" || version > 4)
+      if (typeof version !== "number" || version > 5)
         throw new ReconciliationError(
           "incompatible_state",
           "Unsupported SQLite schema version",
@@ -133,8 +134,9 @@ export class SqliteReconciliationStore implements ReconciliationStore {
       migrateRuns(this.database);
       migratePlans(this.database);
       migrateRepairs(this.database);
+      migrateIdentities(this.database, version);
       this.database.exec(
-        "CREATE TABLE IF NOT EXISTS evidence_retention (job_id TEXT PRIMARY KEY,through_sequence INTEGER NOT NULL,pruned_at TEXT NOT NULL) STRICT; PRAGMA user_version=4;",
+        "CREATE TABLE IF NOT EXISTS evidence_retention (job_id TEXT PRIMARY KEY,through_sequence INTEGER NOT NULL,pruned_at TEXT NOT NULL) STRICT; PRAGMA user_version=5;",
       );
       this.database.exec("COMMIT");
       migrating = false;
@@ -297,6 +299,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
 
     this.database.exec("BEGIN IMMEDIATE");
     try {
+      const index = identityIndexer(this.database);
       for (const observation of input.observations) {
         upsertObservation.run(
           adapterKey(namespace, observation.adapter.id),
@@ -305,6 +308,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
           observation.identityKey,
           JSON.stringify(observation),
         );
+        index(adapterKey(namespace, observation.adapter.id), observation);
       }
       insertReport.run(
         input.report.runId,

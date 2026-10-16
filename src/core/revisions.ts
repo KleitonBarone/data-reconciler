@@ -2,6 +2,18 @@ import type { RecordSnapshot } from "./model.js";
 import { canonicalJson, compareText } from "./json.js";
 import { ReconciliationError } from "./errors.js";
 
+/** Every current variant reserves its identity until a newer revision resolves the tie. */
+export function observationIdentities(
+  record: RecordSnapshot,
+): readonly (string | null)[] {
+  return [
+    ...new Set([
+      record.identityKey,
+      ...(record.revisionConflicts ?? []).flatMap(observationIdentities),
+    ]),
+  ];
+}
+
 /** Delivery order cannot supersede a newer revision or resolve an equal-time tie. */
 export function mergeObservations(
   stored: readonly RecordSnapshot[],

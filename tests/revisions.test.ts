@@ -24,6 +24,35 @@ function snapshot(
   });
 }
 describe("record revisions", () => {
+  it("blocks every identity claimed by ambiguous revisions, including a missing identity", () => {
+    const first = snapshot(1);
+    const second = { ...snapshot(2), identityKey: "item:two" };
+    const current = mergeObservations([], [first, second]);
+    const results = classifyRecords(current, []);
+    expect(results.map((result) => result.identityKey)).toEqual([
+      "item:one",
+      "item:two",
+    ]);
+    expect(
+      results.every((result) => result.classification === "conflicting"),
+    ).toBe(true);
+    expect(results.every((result) => result.source.length === 2)).toBe(true);
+    const unidentified = mergeObservations(
+      [],
+      [first, { ...second, identityKey: null }],
+    );
+    expect(
+      classifyRecords(unidentified, []).map((result) => result.identityKey),
+    ).toEqual(["item:one", null]);
+    expect(
+      classifyRecords(
+        mergeObservations(current, [
+          { ...first, updatedAt: "2026-01-03T00:00:00Z" },
+        ]),
+        [],
+      ).map((result) => result.identityKey),
+    ).toEqual(["item:one"]);
+  });
   it("chooses repeated-delivery evidence independently of arrival order", () => {
     const original = snapshot(1);
     const first = {
@@ -44,13 +73,14 @@ describe("record revisions", () => {
   it.each(Array.from({ length: seedCount }, (_, seed) => seed + 1))(
     "is invariant under seeded delivery and page permutations, seed %s",
     (seed) => {
-      const originals = Array.from({ length: 40 }, (_, index) =>
-        snapshot(
+      const originals = Array.from({ length: 40 }, (_, index) => ({
+        ...snapshot(
           index % 3,
           `2026-01-0${(index % 4) + 1}T00:00:00Z`,
           `record-${index % 5}`,
         ),
-      );
+        identityKey: index % 7 === 0 ? null : "item:" + String(index % 3),
+      }));
       const expected = mergeObservations([], originals);
       let state = seed;
       const random = () => {
@@ -76,6 +106,9 @@ describe("record revisions", () => {
         index += size;
       }
       expect(current).toEqual(expected);
+      expect(classifyRecords(current, [])).toEqual(
+        classifyRecords(expected, []),
+      );
     },
   );
   it("ignores a late stale update and collapses repeated delivery", () => {

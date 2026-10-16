@@ -14,6 +14,27 @@ Windows [CI matrix](.github/workflows/ci.yml) and separate
 commit before accepting it. Registry-name confirmation and publication remain
 separate release actions; the package stays private.
 
+## Release review follow-up
+
+The readiness review reproduced four defects despite the original green gates.
+Release readiness is pending these fixes and fresh CI on their final commit.
+Each slice includes a failing reproduction, focused checks, and `pnpm check`,
+then a local Conventional Commit and a push to `origin/main` as authorized for
+this follow-up. Verify both CI workflows on the final pushed revision.
+
+- [x] Protect all identities in ambiguous current revisions, migrate the derived
+      index, and reject unsafe operations from old reports and accepted plans.
+      Commit and push `fix(core): block repairs for every ambiguous identity`.
+- [ ] Preserve unknown writes through lookup failures and crash recovery. Commit
+      and push `fix(repairs): preserve uncertainty across recovery attempts`.
+- [ ] Reject run-ID collisions without changing existing runs or reports. Commit
+      and push `fix(storage): preserve runs when IDs collide`.
+- [ ] Return the original immutable acceptance for identical approval retries.
+      Commit and push `fix(plans): make identical approval retries idempotent`.
+- [ ] Repeat seeded, performance, and installed-workflow verification; record
+      results and verify Linux/Windows CI and performance CI on the final push.
+      Commit and push `docs: record release review fixes and verification`.
+
 ## Product and finish line
 
 Data Reconciler helps integration developers find and explain drift, then apply
@@ -490,12 +511,14 @@ can repeat the complete workflow. Package publication is tracked separately from
 implementation completion. Do not estimate progress as a percentage of checked
 boxes or add dates before the next slices are understood.
 
-All implementation items have local acceptance evidence. `pnpm check` covers
-source and schema tests plus compiled CLI and installed-consumer scenarios.
-`pnpm benchmark` covers 100,000 records per side; the performance workflow adds
-256 generated delivery/page seeds. See `docs/performance.md` for measurements.
-The remaining release decision is registry-name confirmation and explicit
-publication approval after the candidate's supported CI jobs pass.
+The original implementation items have local acceptance evidence. The release
+review follow-up above must also pass before declaring the candidate ready.
+`pnpm check` covers source and schema tests plus compiled CLI and
+installed-consumer scenarios. `pnpm benchmark` covers 100,000 records per side;
+the performance workflow adds 256 generated delivery/page seeds. See
+`docs/performance.md` for measurements. Registry-name confirmation and explicit
+publication approval remain separate from verification of the review fixes and
+the candidate's supported CI jobs.
 
 ## Outside the bounded 1.0 release
 

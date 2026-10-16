@@ -1,7 +1,7 @@
 import { setImmediate as yieldEventLoop } from "node:timers/promises";
 import type { ReconciliationResult, ReportSummary } from "./model.js";
 import type { DurableStore } from "./store.js";
-import { classifyRecords } from "./classify.js";
+import { classifyIdentity, classifyRecords } from "./classify.js";
 import { checkCancelled } from "./job.js";
 
 export async function compareGroups(
@@ -22,7 +22,13 @@ export async function compareGroups(
   let batch: ReconciliationResult[] = [];
   for (const group of store.groups(sourceId, targetId)) {
     checkCancelled(signal);
-    for (const result of classifyRecords(group.source, group.target)) {
+    const results =
+      group.identityKey === null
+        ? classifyRecords(group.source, group.target).filter(
+            (result) => result.identityKey === null,
+          )
+        : [classifyIdentity(group.identityKey, group.source, group.target)];
+    for (const result of results) {
       summary.total++;
       summary[result.classification]++;
       if (result.classification !== "equal")

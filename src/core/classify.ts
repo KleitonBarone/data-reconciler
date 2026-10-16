@@ -1,5 +1,6 @@
 import type { JsonObject, JsonValue } from "../contracts/adapter.js";
 import { compareText } from "./json.js";
+import { observationIdentities } from "./revisions.js";
 import type {
   ComparedValue,
   FieldDifference,
@@ -13,7 +14,7 @@ export function classifyRecords(
   targetRecords: readonly RecordSnapshot[],
 ): readonly ReconciliationResult[] {
   const missingIdentity = [...sourceRecords, ...targetRecords]
-    .filter((record) => record.identityKey === null)
+    .filter((record) => observationIdentities(record).includes(null))
     .map<ReconciliationResult>((record) => ({
       classification: "conflicting",
       identityKey: null,
@@ -62,15 +63,17 @@ function groupByIdentity(
 ): Map<string, RecordSnapshot[]> {
   const groups = new Map<string, RecordSnapshot[]>();
   for (const record of records) {
-    if (record.identityKey === null) continue;
-    const group = groups.get(record.identityKey) ?? [];
-    group.push(record);
-    groups.set(record.identityKey, group);
+    for (const identity of observationIdentities(record)) {
+      if (identity === null) continue;
+      const group = groups.get(identity) ?? [];
+      group.push(record);
+      groups.set(identity, group);
+    }
   }
   return groups;
 }
 
-function classifyIdentity(
+export function classifyIdentity(
   identityKey: string,
   source: readonly RecordSnapshot[],
   target: readonly RecordSnapshot[],

@@ -22,6 +22,12 @@ Missing identities, duplicate owners, tombstones, and ambiguous revisions remain
 conflicts. No automatic deletion or bidirectional writes are supported. An
 update requires an opaque target revision for a future atomic precondition.
 
+When indistinguishable revisions claim different identities, every claimed
+identity remains conflicting until a proven newer revision resolves the tie.
+Planning and apply also inspect original conflict evidence in saved reports, so
+an accepted plan created before this fix cannot authorize a repair for an
+ambiguous identity.
+
 ```sh
 pnpm dev compare --config job.json --format json
 pnpm dev plan --config job.json --run RUN_ID --format json

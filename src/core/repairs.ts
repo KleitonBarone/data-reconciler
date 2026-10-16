@@ -6,6 +6,7 @@ import {
   receiptValue,
 } from "../contracts/writer.js";
 import type { RepairPlan, PlanAcceptance } from "./plans.js";
+import { conflictedIdentities } from "./plans.js";
 import {
   compare,
   checkCancelled,
@@ -117,8 +118,26 @@ export async function applyPlan(
     options.digest,
     now(),
   );
-  const writer = writerValue(job.target.writer);
   const scoped = options.store.forJob(job.id, plan.body.fingerprint);
+  const blocked = conflictedIdentities(
+    scoped.durable,
+    plan.body.runId,
+    plan.body.operations
+      .filter((op) => acceptance.operationIds.includes(op.id))
+      .map((op) => op.identityKey),
+  );
+  for (const operation of plan.body.operations) {
+    if (
+      acceptance.operationIds.includes(operation.id) &&
+      blocked.has(operation.identityKey) &&
+      options.store.repairs.state(plan.digest, operation.id) === null
+    )
+      throw new ReconciliationError(
+        "unsafe_write",
+        "Saved plan touches an ambiguous identity; compare and review a new plan",
+      );
+  }
+  const writer = writerValue(job.target.writer);
   const attemptId = randomUUID();
   const summary = {
     schemaVersion: "1" as const,
@@ -194,6 +213,11 @@ export async function applyPlan(
           retryOptions(operation.id),
         );
         if (receipt === null) {
+          if (blocked.has(operation.identityKey))
+            throw new ReconciliationError(
+              "unsafe_write",
+              "Saved plan touches an ambiguous identity; recovery may only resolve existing receipts",
+            );
           const updatedAt = new Date(
             Math.max(
               Date.parse(operation.source.updatedAt),

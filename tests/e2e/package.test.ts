@@ -300,7 +300,7 @@ it("installs a release candidate and rehearses the complete workflow without rep
     expect(
       json(["inspect", "--store", join(runtime, "backup.sqlite")])
         .schemaVersion,
-    ).toBe(4);
+    ).toBe(5);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

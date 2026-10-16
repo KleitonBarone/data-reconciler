@@ -8,6 +8,129 @@ import { expect, it } from "vitest";
 import { initializeSqliteTarget, planValue } from "../../src/index.js";
 import { objectValue, stringValue } from "../../src/core/validation.js";
 
+it("keeps every ambiguous identity out of compiled repair dispatch", async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), "reconciler-identity-repairs-"),
+  );
+  const source = join(directory, "source.json");
+  const target = join(directory, "target.sqlite");
+  const state = join(directory, "state.sqlite");
+  const config = join(directory, "job.json");
+  const cli = resolve("dist/cli.js");
+  const run = (...args: string[]) => {
+    const result = spawnSync(
+      process.execPath,
+      [cli, ...args, "--config", config, "--store", state, "--format", "json"],
+      { cwd: directory, encoding: "utf8", timeout: 30000 },
+    );
+    expect(result.status, result.stderr).toBe(0);
+    return objectValue(JSON.parse(result.stdout) as unknown);
+  };
+  const owner = {
+    recordId: "owner",
+    identity: { kind: "sku", value: "B" },
+    updatedAt: "2026-01-01T00:00:00Z",
+    comparable: { stock: 1 },
+    evidence: { format: "fixture", locator: "owner", payload: {} },
+  };
+  try {
+    initializeSqliteTarget(target, [owner]);
+    // Simulate a provider changing identity at an indistinguishable revision time.
+    const db = new DatabaseSync(target);
+    const alternate = JSON.stringify({
+      ...owner,
+      identity: { kind: "sku", value: "A" },
+    });
+    db.prepare(
+      "INSERT INTO target_events(record_json,plan_digest) VALUES (?,NULL)",
+    ).run(alternate);
+    db.prepare(
+      "UPDATE target_records SET revision=2,record_json=? WHERE record_id='owner'",
+    ).run(alternate);
+    db.close();
+    await writeFile(
+      source,
+      JSON.stringify(
+        ["A", "B", "safe"].map((sku) => ({
+          id: sku,
+          sku,
+          stock: 2,
+          time: "2026-01-02T00:00:00Z",
+        })),
+      ),
+    );
+    await writeFile(
+      config,
+      JSON.stringify({
+        id: "ambiguous-repairs",
+        pageSize: 1,
+        source: {
+          id: "source",
+          type: "json",
+          path: source,
+          schemaVersion: "1",
+          projection: {
+            id: "/id",
+            updatedAt: "/time",
+            identity: { kind: "sku", paths: ["/sku"] },
+            fields: { stock: "/stock" },
+          },
+        },
+        target: { id: "target", type: "sqlite-records", path: target },
+        repair: {
+          version: "1",
+          direction: "source-to-target",
+          sourceFields: ["stock"],
+        },
+      }),
+    );
+    const targetBefore = await readFile(target);
+    const report = run("compare");
+    expect(report.summary).toMatchObject({ conflicting: 2, missing: 1 });
+    const plan = planValue(run("plan", "--run", stringValue(report.runId)));
+    expect(plan.body.operations.map((op) => op.identityKey)).toEqual([
+      "sku:safe",
+    ]);
+    run(
+      "accept",
+      "--digest",
+      plan.digest,
+      "--all",
+      "--fields",
+      "stock",
+      "--max-operations",
+      "1",
+      "--max-records",
+      "1",
+    );
+    expect(await readFile(target)).toEqual(targetBefore);
+    expect(run("apply", "--digest", plan.digest)).toMatchObject({
+      succeeded: 1,
+      unknown: 0,
+      failed: 0,
+    });
+    const after = await readFile(target);
+    expect(run("apply", "--digest", plan.digest)).toMatchObject({
+      succeeded: 0,
+      skipped: 1,
+    });
+    expect(await readFile(target)).toEqual(after);
+    const read = new DatabaseSync(target, { readOnly: true });
+    try {
+      expect(
+        read.prepare("SELECT COUNT(*) n FROM target_records").get()?.n,
+      ).toBe(2);
+      expect(
+        read.prepare("SELECT COUNT(*) n FROM target_events").get()?.n,
+      ).toBe(3);
+    } finally {
+      read.close();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 it.each(["before", "after"] as const)(
   "recovers a forced %s-write process termination with no duplicate effects",
   async (phase) => {

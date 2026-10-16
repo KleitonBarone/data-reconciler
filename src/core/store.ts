@@ -36,6 +36,7 @@ export type DurableStore = {
     sourceId: string,
     targetId: string,
   ): Iterable<{
+    readonly identityKey: string | null;
     readonly source: readonly RecordSnapshot[];
     readonly target: readonly RecordSnapshot[];
   }>;

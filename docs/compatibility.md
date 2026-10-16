@@ -12,7 +12,7 @@ need Node type declarations and `types: ["node"]` in configurations that disable
 ambient type discovery.
 
 Read contract 1, optional writer contract 1, report/plan/acceptance/outcome
-schema 1, normalization-policy versions, and SQLite state schema 4 are distinct.
+schema 1, normalization-policy versions, and SQLite state schema 5 are distinct.
 Adapter implementation changes and provider schema changes require separate
 version updates. Policy content also participates in the job fingerprint, so
 reusing a policy label cannot silently reinterpret an existing job.
@@ -38,6 +38,14 @@ Backward-compatible additions may extend version 1 contracts. Incompatible
 semantics require a new explicit format or adapter version. Historical snapshots
 and reports remain interpreted with their recorded versions. Unknown report,
 plan, and state versions are refused by runtime readers.
+
+State schema 5 adds a derived index for every identity claimed by current
+revision variants. It migrates existing stores transactionally without changing
+historical JSON or job fingerprints. Custom `DurableStore.groups`
+implementations must supply an explicit `identityKey` and include every current
+record that claims that key, including identities in `revisionConflicts`. Each
+group is classified once for its explicit key. A null-key group contains one
+record with a missing identity in at least one variant.
 
 ## Install and release
 
