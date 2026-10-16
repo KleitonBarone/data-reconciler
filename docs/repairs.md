@@ -42,6 +42,11 @@ can request up to seven days when creating a plan. Expired plans require a new
 comparison and review. Acceptances are immutable. Review a new plan to change
 the selection.
 
+Retrying the same acceptance returns the first stored record, including its
+original `acceptedAt`. Operation and field order do not matter. The digest,
+selected operations, allowed fields, expiry, and both bounds must still match. A
+retry cannot renew an expired plan or widen its authorization.
+
 Plans preserve before/after values, source evidence, target revisions and
 checkpoints, and job, dataset, schema, adapter, normalization, and policy
 versions. Planning and accepting do not call an adapter writer. Read-only

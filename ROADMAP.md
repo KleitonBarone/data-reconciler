@@ -32,7 +32,7 @@ this follow-up. Verify both CI workflows on the final pushed revision.
 - [x] Give multi-process scenarios an explicit bounded timeout after Windows CI
       measured six to eight seconds against Vitest's five-second default. Commit
       and push `test(e2e): allow bounded Windows process workflows`.
-- [ ] Return the original immutable acceptance for identical approval retries.
+- [x] Return the original immutable acceptance for identical approval retries.
       Commit and push `fix(plans): make identical approval retries idempotent`.
 - [ ] Repeat seeded, performance, and installed-workflow verification; record
       results and verify Linux/Windows CI and performance CI on the final push.

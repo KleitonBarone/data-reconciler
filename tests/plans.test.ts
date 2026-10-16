@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   SqliteReconciliationStore,
   compare,
@@ -60,6 +63,75 @@ function fixture() {
 }
 
 describe("repair review", () => {
+  it("returns the first acceptance across retrying connections without changing its timestamp or scope", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "reconciler-approval-retry-"));
+    const path = join(directory, "state.sqlite");
+    const store = new SqliteReconciliationStore(path);
+    const second = new SqliteReconciliationStore(path);
+    const job = fixture();
+    try {
+      const run = await compare(job, {
+        store,
+        now: () => new Date("2026-01-02T00:00:00Z"),
+      });
+      const plan = createPlan(job, { store, runId: run.runId });
+      const options = {
+        store,
+        digest: plan.digest,
+        operationIds: plan.body.operations.map((op) => op.id),
+        allowedFields: ["stock", "label"],
+        maxOperations: 2,
+        maxRecords: 2,
+        now: () => new Date("2026-01-02T00:01:00Z"),
+      };
+      const first = acceptPlan(job, options);
+      const later = {
+        ...options,
+        store: second,
+        now: () => new Date("2026-01-02T01:00:00Z"),
+      };
+      expect(
+        acceptPlan(job, {
+          ...later,
+          operationIds: [...options.operationIds].reverse(),
+          allowedFields: [...options.allowedFields].reverse(),
+        }),
+      ).toEqual(first);
+      expect(second.plans.acceptance(plan.digest)).toEqual(first);
+      expect(() => acceptPlan(job, { ...later, maxRecords: 3 })).toThrow(
+        "immutable",
+      );
+      expect(() => acceptPlan(job, { ...later, maxOperations: 3 })).toThrow(
+        "immutable",
+      );
+      expect(() =>
+        acceptPlan(job, { ...later, allowedFields: ["stock"] }),
+      ).toThrow("immutable");
+      expect(() =>
+        acceptPlan(job, {
+          ...later,
+          operationIds: options.operationIds.slice(0, 1),
+        }),
+      ).toThrow("immutable");
+      expect(() =>
+        second.plans.accept({
+          ...first,
+          expiresAt: "2026-01-04T00:00:00.000Z",
+        }),
+      ).toThrow("immutable");
+      expect(() =>
+        acceptPlan(job, {
+          ...later,
+          now: () => new Date("2026-01-03T00:00:00Z"),
+        }),
+      ).toThrow("expired");
+      expect(store.plans.acceptance(plan.digest)).toEqual(first);
+    } finally {
+      second.close();
+      store.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
   it("creates deterministic operations with evidence without changing either source", async () => {
     const store = new SqliteReconciliationStore(":memory:");
     const job = fixture();

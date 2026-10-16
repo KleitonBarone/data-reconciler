@@ -11,6 +11,8 @@
   receipts or durable deduplication without repeating completed effects.
 - Reject duplicate run IDs before changing run state. Preserve completed reports
   and unfinished runs when comparison or replay cannot create a new run.
+- Return the original acceptance for identical approval retries, preserving its
+  timestamp and bounds across processes. Changed authorization remains rejected.
 
 ## 1.0.0-rc.1
 

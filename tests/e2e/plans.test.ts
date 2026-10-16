@@ -32,7 +32,7 @@ it("reviews and accepts an exact digest through the compiled CLI without target 
     const result = spawnSync(
       process.execPath,
       [cli, ...args, "--store", store, "--format", "json"],
-      { cwd: directory, encoding: "utf8" },
+      { cwd: directory, encoding: "utf8", timeout: 30000 },
     );
     expect(result.status, result.stderr).toBe(0);
     return objectValue(JSON.parse(result.stdout) as unknown);
@@ -60,7 +60,7 @@ it("reviews and accepts an exact digest through the compiled CLI without target 
     expect(planValue(run("show-plan", "--digest", proposed.digest))).toEqual(
       proposed,
     );
-    const accepted = run(
+    const acceptanceArgs = [
       "accept",
       "--config",
       config,
@@ -73,11 +73,13 @@ it("reviews and accepts an exact digest through the compiled CLI without target 
       "1",
       "--max-records",
       "1",
-    );
+    ];
+    const accepted = run(...acceptanceArgs);
     expect(accepted.digest).toBe(proposed.digest);
+    expect(run(...acceptanceArgs)).toEqual(accepted);
     expect(await readFile(source, "utf8")).toBe(input);
     expect(await readFile(target, "utf8")).toBe("[]");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-});
+}, 60_000);

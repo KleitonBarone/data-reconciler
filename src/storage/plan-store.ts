@@ -8,7 +8,7 @@ import {
 } from "../core/plans.js";
 import { decode } from "../core/decoders.js";
 import { stringValue } from "../core/validation.js";
-import { canonicalJson } from "../core/json.js";
+import { canonicalJson, compareText } from "../core/json.js";
 import { jsonValue } from "../core/validation.js";
 import { ReconciliationError } from "../core/errors.js";
 
@@ -40,13 +40,14 @@ export class SqlitePlanStore implements PlanStore {
     return plan;
   }
   accept(acceptance: PlanAcceptance): void {
-    acceptanceValue(acceptance);
+    const candidate = acceptanceValue(acceptance);
     this.db
       .prepare("INSERT OR IGNORE INTO plan_acceptances VALUES (?,?)")
-      .run(acceptance.digest, JSON.stringify(acceptance));
-    const saved = this.acceptance(acceptance.digest);
+      .run(candidate.digest, JSON.stringify(candidate));
+    const saved = this.acceptance(candidate.digest);
     if (
-      canonicalJson(jsonValue(saved)) !== canonicalJson(jsonValue(acceptance))
+      saved === null ||
+      authorizationContent(saved) !== authorizationContent(candidate)
     )
       throw new ReconciliationError(
         "unsafe_write",
@@ -61,4 +62,17 @@ export class SqlitePlanStore implements PlanStore {
       ? null
       : decode(stringValue(row.acceptance_json), acceptanceValue);
   }
+}
+
+/** Approval time records the first acceptance; it does not change authorization. */
+function authorizationContent(acceptance: PlanAcceptance): string {
+  const { acceptedAt, ...authorization } = acceptance;
+  void acceptedAt;
+  return canonicalJson(
+    jsonValue({
+      ...authorization,
+      operationIds: [...authorization.operationIds].sort(compareText),
+      allowedFields: [...authorization.allowedFields].sort(compareText),
+    }),
+  );
 }

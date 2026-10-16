@@ -350,7 +350,13 @@ export function acceptPlan(
     maxRecords: options.maxRecords,
   };
   options.store.plans.accept(acceptance);
-  return acceptance;
+  const saved = options.store.plans.acceptance(plan.digest);
+  if (saved === null)
+    throw new ReconciliationError(
+      "corrupt_state",
+      "Accepted authorization was not persisted",
+    );
+  return saved;
 }
 
 export function planValue(value: unknown): RepairPlan {
