@@ -13,7 +13,6 @@
 - Add a runnable normalization guide covering projected fields, identity rules,
   ignored values, unordered arrays, and untouched source evidence. Verify the
   example through the installed CLI and public library exports.
-
 - Block repairs for every identity claimed by ambiguous current revisions,
   including operations in reports and accepted plans saved before the fix.
 - Migrate SQLite state to schema 5 with a derived identity-claims index.
@@ -26,8 +25,10 @@
 - Return the original acceptance for identical approval retries, preserving its
   timestamp and bounds across processes. Changed authorization remains rejected.
 - Give compiled process workflows explicit time budgets after Windows CI
-  exceeded the default five seconds. Local verification passes 97 tests, the
-  expanded 256-seed run, and the 100,000-record-per-side benchmark.
+  exceeded the default five seconds.
+- Local verification passes formatting, lint, strict types, 93 source tests,
+  build, and 10 compiled or installed-consumer tests. The performance workflow
+  separately verifies 256 delivery/page seeds and 100,000 records per side.
 
 ## 1.0.0-rc.1
 

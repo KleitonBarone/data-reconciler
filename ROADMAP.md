@@ -80,9 +80,31 @@ the final revision. Keep registry publication separate.
       identity, field, ignore, array, and evidence behavior through public
       exports. Commit and push
       `docs: demonstrate normalization of projected records`.
-- [ ] Record final checks, commit and push
-      `docs: record final documentation and quality verification`, then verify
-      Linux/Windows CI, performance CI, and a clean worktree on that revision.
+- [x] Record final local verification. Commit and push
+      `docs: record final documentation and quality verification`.
+
+Local verification passes `pnpm check`: formatting, lint, strict types, 93
+source tests, build, and 10 compiled or installed-consumer tests. Before the
+fixes, four invalid-policy cases passed job validation, two unsafe writers
+passed conformance, and the installed README linked to an absent contributor
+guide. Those reproductions now pass with the intended rejections and intact
+state.
+
+The installed-consumer scenario also resolves relative links in every shipped
+Markdown file. It compiles the public library example and runs the normalization
+job through both that example and the installed CLI, checking exact comparable
+values and complete original evidence. See [the guide](docs/normalization.md),
+`tests/jobs.test.ts`, `tests/writer.test.ts`, and `tests/e2e/package.test.ts`.
+
+Implementation commit `e8318f6` passed
+[Linux/Windows CI](https://github.com/KleitonBarone/data-reconciler/actions/runs/38943736502)
+and the
+[performance/generated workflow](https://github.com/KleitonBarone/data-reconciler/actions/runs/38943736536).
+
+Final acceptance requires Linux/Windows CI, the 100,000-record-per-side
+benchmark and 256-seed performance workflow, and a clean worktree synchronized
+with `origin/main` on the final pushed revision. Registry-name confirmation,
+publication, and real-provider sandbox verification remain separate gates.
 
 ## Product and finish line
 
