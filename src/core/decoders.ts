@@ -60,6 +60,8 @@ export function resultValue(value: unknown): ReconciliationResult {
       throw new Error("Invalid field differences");
     for (const item of raw.differences) {
       const difference = objectValue(item);
+      if (typeof difference.path !== "string")
+        throw new Error("Invalid difference path");
       const part = (value: unknown) => {
         const raw = objectValue(value);
         if (typeof raw.present !== "boolean")
@@ -69,7 +71,7 @@ export function resultValue(value: unknown): ReconciliationResult {
           : { present: false as const };
       };
       differences.push({
-        path: stringValue(difference.path),
+        path: difference.path,
         source: part(difference.source),
         target: part(difference.target),
       });

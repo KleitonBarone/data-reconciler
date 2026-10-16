@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { JsonPageCommerceAdapter } from "./adapters/json-page-adapter.js";
@@ -16,16 +17,23 @@ import { once } from "node:events";
 import { createPlan, acceptPlan } from "./core/plans.js";
 import { applyPlan, validateAcceptedPlan } from "./core/repairs.js";
 import { replay } from "./core/replay.js";
+import { initializeDemo } from "./demo.js";
+import { objectValue, stringValue } from "./core/validation.js";
+import { schemas } from "./contracts/schemas.js";
 
 async function main(): Promise<void> {
   const controller = new AbortController();
   process.once("SIGINT", () => controller.abort());
   process.once("SIGTERM", () => controller.abort());
-  const { values, positionals } = parseArgs({
+  const { values, positionals, tokens } = parseArgs({
+    tokens: true,
     allowPositionals: true,
     strict: true,
     options: {
       apply: { type: "boolean", default: false },
+      version: { type: "boolean", default: false },
+      directory: { type: "string" },
+      kind: { type: "string" },
       config: { type: "string" },
       check: { type: "boolean", default: false },
       to: { type: "string" },
@@ -46,12 +54,31 @@ async function main(): Promise<void> {
       format: { type: "string", default: "human" },
       help: { type: "boolean", short: "h", default: false },
       "page-size": { type: "string", default: "100" },
-      source: { type: "string", default: "fixtures/source-pages.json" },
+      source: {
+        type: "string",
+        default: fileURLToPath(
+          new URL("../fixtures/source-pages.json", import.meta.url),
+        ),
+      },
       store: { type: "string", default: ".data/reconciler.sqlite" },
-      target: { type: "string", default: "fixtures/target-ledger.jsonl" },
+      target: {
+        type: "string",
+        default: fileURLToPath(
+          new URL("../fixtures/target-ledger.jsonl", import.meta.url),
+        ),
+      },
     },
   });
 
+  if (values.version) {
+    const metadata = objectValue(
+      JSON.parse(
+        await readFile(new URL("../package.json", import.meta.url), "utf8"),
+      ) as unknown,
+    );
+    process.stdout.write(`${stringValue(metadata.version)}\n`);
+    return;
+  }
   if (values.help || positionals.length === 0) {
     process.stdout.write(`${usage()}\n`);
     return;
@@ -66,6 +93,87 @@ async function main(): Promise<void> {
       "invalid_config",
       "Expected exactly one command",
     );
+  const commandOptions: Record<string, readonly string[]> = {
+    "init-demo": ["directory"],
+    schema: ["kind"],
+    compare: [
+      "config",
+      "generation",
+      "check",
+      "dry-run",
+      "progress",
+      "page-size",
+    ],
+    reconcile: [
+      "source",
+      "target",
+      "page-size",
+      "check",
+      "dry-run",
+      "config",
+      "generation",
+      "progress",
+    ],
+    plan: ["config", "generation", "run"],
+    "show-plan": ["digest"],
+    accept: [
+      "config",
+      "generation",
+      "digest",
+      "all",
+      "operations",
+      "fields",
+      "max-operations",
+      "max-records",
+    ],
+    apply: ["config", "generation", "digest", "dry-run", "progress"],
+    audit: ["digest"],
+    replay: ["config", "generation", "from", "to"],
+    prune: ["job", "through", "confirm"],
+    inspect: [],
+    backup: ["to"],
+    export: ["run"],
+  };
+  const permitted = commandOptions[positionals[0] ?? ""];
+  if (
+    permitted === undefined ||
+    tokens.some(
+      (token) =>
+        token.kind === "option" &&
+        !["store", "format", "help", "version", ...permitted].includes(
+          token.name,
+        ),
+    )
+  )
+    throw new ReconciliationError(
+      "invalid_config",
+      "Option does not apply to this command",
+    );
+  if (
+    values.format !== "human" &&
+    values.format !== "json" &&
+    values.format !== "ndjson"
+  )
+    throw new ReconciliationError("invalid_config", "Unknown report format");
+  if (positionals[0] === "init-demo") {
+    const demo = await initializeDemo(
+      required(values.directory, "--directory"),
+    );
+    process.stdout.write(`${JSON.stringify(demo, null, 2)}\n`);
+    return;
+  }
+  if (positionals[0] === "schema") {
+    const schema = Object.entries(schemas).find(
+      ([kind]) => kind === values.kind,
+    )?.[1];
+    if (schema === undefined)
+      throw new ReconciliationError(
+        "invalid_config",
+        "Choose a supported schema kind",
+      );
+    process.stdout.write(`${JSON.stringify(schema, null, 2)}\n`);
+    return;
+  }
   if (positionals[0] === "replay") {
     const job = await configuredJob(
       required(values.config, "--config"),
@@ -252,19 +360,18 @@ async function main(): Promise<void> {
     return;
   }
   if (!["reconcile", "compare"].includes(positionals[0] ?? "")) {
-    throw new Error(`Unknown command.\n\n${usage()}`);
-  }
-  if (
-    values.format !== "human" &&
-    values.format !== "json" &&
-    values.format !== "ndjson"
-  ) {
-    throw new Error("--format must be human, json, or ndjson");
+    throw new ReconciliationError(
+      "invalid_config",
+      "Unknown command. Run --help.",
+    );
   }
 
   const pageSize = Number(values["page-size"]);
   if (!Number.isSafeInteger(pageSize) || pageSize < 1) {
-    throw new Error("--page-size must be a positive integer");
+    throw new ReconciliationError(
+      "invalid_config",
+      "--page-size must be a positive integer",
+    );
   }
   const sourcePath = resolve(required(values.source, "--source"));
   const targetPath = resolve(required(values.target, "--target"));
@@ -278,7 +385,24 @@ async function main(): Promise<void> {
     values.config === undefined
       ? null
       : await configuredJob(values.config, values.generation);
-  const job = loadedJob;
+  if (
+    loadedJob !== null &&
+    tokens.some(
+      (token) =>
+        token.kind === "option" && ["source", "target"].includes(token.name),
+    )
+  )
+    throw new ReconciliationError(
+      "invalid_config",
+      "Configure endpoints in the job, not command-line overrides",
+    );
+  const job =
+    loadedJob === null ||
+    !tokens.some(
+      (token) => token.kind === "option" && token.name === "page-size",
+    )
+      ? loadedJob
+      : { ...loadedJob, pageSize };
   await mkdir(dirname(storePath), { recursive: true, mode: 0o700 });
 
   const store = new SqliteReconciliationStore(storePath);
@@ -355,6 +479,8 @@ async function configuredJob(path: string, generation?: string) {
 function usage(): string {
   return [
     "Usage: data-reconciler compare --config <job.json|job.mjs> [options]",
+    "       data-reconciler init-demo --directory <new-directory>",
+    "       data-reconciler schema --kind report|plan|acceptance|outcome|applySummary|ndjson",
     "       data-reconciler reconcile [options]",
     "       data-reconciler plan --config <job> --run <id>",
     "       data-reconciler show-plan --digest <sha256>",

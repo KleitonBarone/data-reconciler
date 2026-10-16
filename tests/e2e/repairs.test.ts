@@ -24,8 +24,7 @@ it.each(["before", "after"] as const)(
         [
           cli,
           ...args,
-          "--config",
-          config,
+          ...(args[0] === "audit" ? [] : ["--config", config]),
           "--store",
           store,
           "--format",

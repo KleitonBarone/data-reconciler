@@ -126,6 +126,7 @@ export function createPlan(
       "Plan lifetime must be between 1 ms and seven days",
     );
   const operations: RepairOperation[] = [];
+  let operationBytes = 0;
   const reasons: Record<string, number> = {};
   const skip = (reason: string) => {
     reasons[reason] = (reasons[reason] ?? 0) + 1;
@@ -227,6 +228,12 @@ export function createPlan(
       fields: owned,
     };
     const id = contentHash(jsonValue({ fingerprint, ...seed }));
+    operationBytes += Buffer.byteLength(JSON.stringify(seed));
+    if (operationBytes > 16 * 1024 * 1024)
+      throw new ReconciliationError(
+        "limit_exceeded",
+        "Plan exceeds the 16 MiB evidence budget; narrow the scope",
+      );
     operations.push({ ...seed, id, deduplicationKey: `${job.id}:${id}` });
     if (operations.length > (policy.maxOperations ?? 1000))
       throw new ReconciliationError(

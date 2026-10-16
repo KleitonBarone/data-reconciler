@@ -23,3 +23,6 @@ export * from "./contracts/writer.js";
 export * from "./adapters/sqlite-record-adapter.js";
 export * from "./core/repairs.js";
 export * from "./core/replay.js";
+export { initializeDemo } from "./demo.js";
+export { normalizeRecord } from "./core/normalize.js";
+export { schemas } from "./contracts/schemas.js";

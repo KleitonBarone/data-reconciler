@@ -314,12 +314,12 @@ interpretations. Run logs contain no fixture secrets.
 Depends on B through G. Packaging checks begin during C, then become a required
 release gate here.
 
-- [ ] H1. Finalize public exports, generic types, error codes, JSON schemas,
+- [x] H1. Finalize public exports, generic types, error codes, JSON schemas,
       compatibility policy, and semantic versioning. Validate package metadata,
       license, runtime requirements, source-map paths, and shipped file
       contents. Choose and confirm a registry package name before removing
       `private`.
-- [ ] H2. Pack a tarball, install it into a separate temporary TypeScript
+- [x] H2. Pack a tarball, install it into a separate temporary TypeScript
       project, compile a consumer, import the public API, and execute the
       installed CLI. The consumer cannot access repository files, undeclared
       dependencies, or dev tooling. Test bundled demo asset resolution from an

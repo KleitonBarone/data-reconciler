@@ -167,13 +167,27 @@ export class SqliteRunStore implements DurableStore {
     const query = this.db.prepare(
       "SELECT snapshot_json FROM observations WHERE adapter_id=? AND identity_key=? ORDER BY record_id LIMIT 1001",
     );
+    const readGroup = (
+      key: string,
+      identity: import("node:sqlite").SQLInputValue,
+    ) => {
+      const records: RecordSnapshot[] = [];
+      let bytes = 0;
+      for (const row of query.iterate(key, identity)) {
+        const json = stringValue(row.snapshot_json);
+        bytes += Buffer.byteLength(json);
+        if (bytes > 16 * 1024 * 1024)
+          throw new ReconciliationError(
+            "limit_exceeded",
+            "Identity evidence exceeds the 16 MiB per-side budget",
+          );
+        records.push(decode(json, snapshotValue));
+      }
+      return records;
+    };
     for (const row of identities.iterate(...keys)) {
-      const source = query
-        .all(keys[0] ?? "", row.identity_key ?? null)
-        .map((row) => decode(stringValue(row.snapshot_json), snapshotValue));
-      const target = query
-        .all(keys[1] ?? "", row.identity_key ?? null)
-        .map((row) => decode(stringValue(row.snapshot_json), snapshotValue));
+      const source = readGroup(keys[0] ?? "", row.identity_key ?? null);
+      const target = readGroup(keys[1] ?? "", row.identity_key ?? null);
       if (source.length > 1000 || target.length > 1000)
         throw new ReconciliationError(
           "limit_exceeded",
