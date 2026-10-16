@@ -29,3 +29,20 @@ pnpm dev compare --config examples/inventory.json --generation rescan-2
 This keeps the prior observations, reports, and evidence. It does not execute
 repairs. Schema upgrades run transactionally. Unknown future versions and
 malformed stored records fail rather than being silently reinterpreted.
+
+State schema version 4 migrates prototype databases and versions 1 through 3
+inside one transaction. Historical JSON bytes are not rewritten. The provisional
+job fingerprint gained explicit ownership during implementation. If an older
+prototype scope cannot resume, retain its store and create a new generation.
+This is a rescan, not repair re-execution. Unknown future versions are refused.
+
+To recover after a target write with an unrecorded acknowledgement, restore the
+latest state backup, keep the target's deduplication database intact, and apply
+the same accepted digest. Target receipts establish prior success. Tests prove
+this does not repeat target effects or change the old comparison's meaning.
+Never delete target deduplication receipts to make a stale plan run again.
+
+Expired or replaced cursors require a rescan into a new generation. Malformed
+SQLite rows fail runtime validation. Preserve corrupt files before restoring a
+backup; do not edit checkpoints or audit JSON manually. A stale PID claim is
+reclaimed automatically only when that local process no longer exists.

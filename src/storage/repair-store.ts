@@ -16,7 +16,7 @@ export function migrateRepairs(db: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS repair_history_plan ON repair_history(digest,sequence);
     CREATE TABLE IF NOT EXISTS plan_verifications (digest TEXT NOT NULL REFERENCES repair_plans(digest),run_id TEXT NOT NULL REFERENCES run_state(run_id),PRIMARY KEY(digest,run_id)) STRICT;
     CREATE TABLE IF NOT EXISTS apply_summaries (attempt_id TEXT PRIMARY KEY,digest TEXT NOT NULL REFERENCES repair_plans(digest),summary_json TEXT NOT NULL) STRICT;
-    PRAGMA user_version=3;`);
+    `);
 }
 export class SqliteRepairStore implements RepairAuditStore {
   constructor(private readonly db: DatabaseSync) {}

@@ -40,6 +40,18 @@ export class SqliteReconciliationStore implements ReconciliationStore {
   private readonly database: DatabaseSync;
 
   constructor(path: string) {
+    if (path !== ":memory:") {
+      try {
+        closeSync(openSync(path, "wx", 0o600));
+      } catch (error) {
+        if (!(
+          error instanceof Error &&
+          "code" in error &&
+          error.code === "EEXIST"
+        ))
+          throw error;
+      }
+    }
     this.database = new DatabaseSync(path);
     let migrating = false;
     try {
@@ -51,7 +63,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
           "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
         )
         .all();
-      if (typeof version !== "number" || version > 3)
+      if (typeof version !== "number" || version > 4)
         throw new ReconciliationError(
           "incompatible_state",
           "Unsupported SQLite schema version",
@@ -121,6 +133,9 @@ export class SqliteReconciliationStore implements ReconciliationStore {
       migrateRuns(this.database);
       migratePlans(this.database);
       migrateRepairs(this.database);
+      this.database.exec(
+        "CREATE TABLE IF NOT EXISTS evidence_retention (job_id TEXT PRIMARY KEY,through_sequence INTEGER NOT NULL,pruned_at TEXT NOT NULL) STRICT; PRAGMA user_version=4;",
+      );
       this.database.exec("COMMIT");
       migrating = false;
     } catch (error) {
@@ -388,6 +403,58 @@ export class SqliteReconciliationStore implements ReconciliationStore {
   backup(destination: string): void {
     closeSync(openSync(destination, "wx", 0o600));
     this.database.prepare("VACUUM INTO ?").run(destination);
+  }
+
+  pruneEvidence(jobId: string, through: number): number {
+    if (!Number.isSafeInteger(through) || through < 1)
+      throw new ReconciliationError(
+        "invalid_config",
+        "A positive evidence sequence boundary is required",
+      );
+    this.database.exec("BEGIN IMMEDIATE");
+    try {
+      const last = this.database
+        .prepare("SELECT MAX(sequence) n FROM deliveries WHERE job_id=?")
+        .get(jobId)?.n;
+      if (typeof last !== "number" || through > last)
+        throw new ReconciliationError(
+          "invalid_config",
+          "Prune boundary must be within the job's recorded delivery range",
+        );
+      if (
+        this.database
+          .prepare("SELECT 1 FROM job_claims WHERE job_id=?")
+          .get(jobId) !== undefined
+      )
+        throw new ReconciliationError(
+          "busy",
+          "Stop or recover the job before pruning evidence",
+        );
+      if (
+        this.database
+          .prepare(
+            "SELECT 1 FROM repair_plans p JOIN plan_acceptances a ON a.digest=p.digest WHERE p.job_id=? LIMIT 1",
+          )
+          .get(jobId) !== undefined
+      )
+        throw new ReconciliationError(
+          "unsafe_write",
+          "Accepted plans pin this job's evidence; pruning is refused",
+        );
+      const result = this.database
+        .prepare("DELETE FROM deliveries WHERE job_id=? AND sequence<=?")
+        .run(jobId, through);
+      this.database
+        .prepare(
+          "INSERT INTO evidence_retention VALUES (?,?,?) ON CONFLICT(job_id) DO UPDATE SET through_sequence=MAX(through_sequence,excluded.through_sequence),pruned_at=excluded.pruned_at",
+        )
+        .run(jobId, through, new Date().toISOString());
+      this.database.exec("COMMIT");
+      return Number(result.changes);
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
+    }
   }
 }
 

@@ -11,7 +11,15 @@ import type {
 export type RunSummary = Omit<
   ReconciliationReport,
   "results" | "observationsRead"
-> & { readonly jobId: string; readonly fingerprint: string };
+> & {
+  readonly jobId: string;
+  readonly fingerprint: string;
+  readonly replay?: {
+    readonly jobId: string;
+    readonly from: number;
+    readonly to: number;
+  };
+};
 export type DurableStore = {
   acquire(owner: string): void;
   release(owner: string): void;

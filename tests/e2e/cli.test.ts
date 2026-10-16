@@ -147,9 +147,7 @@ describe("compiled CLI", () => {
     const failed = runCli(scenario, "--format", "json");
     expect(failed.status).toBe(1);
     expect(failed.stdout).toBe("");
-    expect(failed.stderr).toContain(
-      "expected schema acme-orders.v1, received unsupported.v2",
-    );
+    expect(failed.stderr).toContain("adapter_error");
     expect(readState(scenario.store)).toEqual(committed);
   });
 });

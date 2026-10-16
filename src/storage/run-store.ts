@@ -13,7 +13,7 @@ import { mergeObservations } from "../core/revisions.js";
 
 export function migrateRuns(db: DatabaseSync): void {
   const version = db.prepare("PRAGMA user_version").get()?.user_version;
-  if (typeof version !== "number" || version > 3)
+  if (typeof version !== "number" || version > 4)
     throw new ReconciliationError(
       "incompatible_state",
       "Unsupported SQLite schema version",
@@ -252,6 +252,14 @@ export class SqliteRunStore implements DurableStore {
     from: number,
     to: number,
   ): Iterable<{ sequence: number; snapshot: RecordSnapshot }> {
+    const floor = this.db
+      .prepare("SELECT through_sequence FROM evidence_retention WHERE job_id=?")
+      .get(this.jobId)?.through_sequence;
+    if (typeof floor === "number" && from <= floor)
+      throw new ReconciliationError(
+        "incompatible_state",
+        "Requested replay range includes explicitly pruned evidence",
+      );
     for (const row of this.db
       .prepare(
         "SELECT sequence,snapshot_json FROM deliveries WHERE job_id=? AND sequence BETWEEN ? AND ? ORDER BY sequence",

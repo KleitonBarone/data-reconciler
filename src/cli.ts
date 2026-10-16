@@ -10,11 +10,12 @@ import { SqliteReconciliationStore } from "./storage/sqlite-store.js";
 import { commercePolicy } from "./adapters/commerce-policy.js";
 import { loadJob } from "./config.js";
 import { compare } from "./core/job.js";
-import { ReconciliationError } from "./core/errors.js";
+import { ReconciliationError, type ErrorCode } from "./core/errors.js";
 import { reportChunks } from "./reporters/export.js";
 import { once } from "node:events";
 import { createPlan, acceptPlan } from "./core/plans.js";
 import { applyPlan, validateAcceptedPlan } from "./core/repairs.js";
+import { replay } from "./core/replay.js";
 
 async function main(): Promise<void> {
   const controller = new AbortController();
@@ -36,6 +37,10 @@ async function main(): Promise<void> {
       fields: { type: "string" },
       "max-operations": { type: "string" },
       "max-records": { type: "string" },
+      from: { type: "string" },
+      through: { type: "string" },
+      job: { type: "string" },
+      confirm: { type: "boolean", default: false },
       progress: { type: "boolean", default: false },
       "dry-run": { type: "boolean" },
       format: { type: "string", default: "human" },
@@ -56,8 +61,64 @@ async function main(): Promise<void> {
       "unsafe_write",
       "Comparison commands never apply repairs. Use the apply command with an accepted digest.",
     );
+  if (positionals.length !== 1)
+    throw new ReconciliationError(
+      "invalid_config",
+      "Expected exactly one command",
+    );
+  if (positionals[0] === "replay") {
+    const job = await configuredJob(
+      required(values.config, "--config"),
+      values.generation,
+    );
+    const store = new SqliteReconciliationStore(
+      resolve(required(values.store, "--store")),
+    );
+    try {
+      const report = await replay(job, {
+        store,
+        from: Number(required(values.from, "--from")),
+        to: Number(required(values.to, "--to")),
+        signal: controller.signal,
+      });
+      for (const chunk of reportChunks(
+        report,
+        store.durable.results(report.runId),
+        values.format === "ndjson" ? "ndjson" : "json",
+      ))
+        if (!process.stdout.write(chunk)) await once(process.stdout, "drain");
+    } finally {
+      store.close();
+    }
+    return;
+  }
+  if (positionals[0] === "prune") {
+    if (!values.confirm)
+      throw new ReconciliationError(
+        "invalid_config",
+        "Pruning requires --confirm and a backup",
+      );
+    const store = new SqliteReconciliationStore(
+      resolve(required(values.store, "--store")),
+    );
+    try {
+      const removed = store.pruneEvidence(
+        required(values.job, "--job"),
+        Number(required(values.through, "--through")),
+      );
+      process.stdout.write(
+        `${JSON.stringify({ removed, recovery: "Restore a backup to recover deleted delivery evidence" })}\n`,
+      );
+    } finally {
+      store.close();
+    }
+    return;
+  }
   if (positionals[0] === "apply") {
-    const job = await loadJob(required(values.config, "--config"));
+    const job = await configuredJob(
+      required(values.config, "--config"),
+      values.generation,
+    );
     const digest = required(values.digest, "--digest");
     const store = new SqliteReconciliationStore(
       resolve(required(values.store, "--store")),
@@ -92,12 +153,13 @@ async function main(): Promise<void> {
   }
   if (["plan", "show-plan", "accept"].includes(positionals[0] ?? "")) {
     const command = positionals[0];
-    if (positionals.length !== 1)
-      throw new ReconciliationError("invalid_config", "Expected one command");
     const job =
       command === "show-plan"
         ? null
-        : await loadJob(required(values.config, "--config"));
+        : await configuredJob(
+            required(values.config, "--config"),
+            values.generation,
+          );
     const store = new SqliteReconciliationStore(
       resolve(required(values.store, "--store")),
     );
@@ -147,8 +209,6 @@ async function main(): Promise<void> {
     return;
   }
   if (["inspect", "backup", "export", "audit"].includes(positionals[0] ?? "")) {
-    if (positionals.length !== 1)
-      throw new ReconciliationError("invalid_config", "Expected one command");
     const store = new SqliteReconciliationStore(
       resolve(required(values.store, "--store")),
     );
@@ -191,10 +251,7 @@ async function main(): Promise<void> {
     }
     return;
   }
-  if (
-    positionals.length !== 1 ||
-    !["reconcile", "compare"].includes(positionals[0] ?? "")
-  ) {
+  if (!["reconcile", "compare"].includes(positionals[0] ?? "")) {
     throw new Error(`Unknown command.\n\n${usage()}`);
   }
   if (
@@ -218,14 +275,11 @@ async function main(): Promise<void> {
       "compare requires --config <path>",
     );
   const loadedJob =
-    values.config === undefined ? null : await loadJob(values.config);
-  const job =
-    loadedJob === null
+    values.config === undefined
       ? null
-      : values.generation === undefined
-        ? loadedJob
-        : { ...loadedJob, id: `${loadedJob.id}/${values.generation}` };
-  await mkdir(dirname(storePath), { recursive: true });
+      : await configuredJob(values.config, values.generation);
+  const job = loadedJob;
+  await mkdir(dirname(storePath), { recursive: true, mode: 0o700 });
 
   const store = new SqliteReconciliationStore(storePath);
   try {
@@ -291,6 +345,13 @@ function required(value: string | undefined, option: string): string {
   return value;
 }
 
+async function configuredJob(path: string, generation?: string) {
+  const job = await loadJob(path);
+  return generation === undefined
+    ? job
+    : { ...job, id: `${job.id}/${required(generation, "--generation")}` };
+}
+
 function usage(): string {
   return [
     "Usage: data-reconciler compare --config <job.json|job.mjs> [options]",
@@ -300,6 +361,8 @@ function usage(): string {
     "       data-reconciler accept --config <job> --digest <sha256> --all --fields <names> --max-operations <n> --max-records <n>",
     "       data-reconciler apply --config <job> --digest <sha256> [--dry-run]",
     "       data-reconciler audit --digest <sha256>",
+    "       data-reconciler replay --config <job> --from <sequence> --to <sequence>",
+    "       data-reconciler prune --job <id> --through <sequence> --confirm",
     "       data-reconciler inspect|backup|export --store <path> [--to <backup>] [--run <id>]",
     "",
     "Options:",
@@ -318,12 +381,34 @@ function usage(): string {
 }
 
 main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`data-reconciler: ${message}\n`);
+  const code: ErrorCode =
+    error instanceof ReconciliationError
+      ? error.code
+      : error instanceof Error &&
+          "code" in error &&
+          typeof error.code === "string" &&
+          error.code.startsWith("ERR_PARSE_ARGS")
+        ? "invalid_config"
+        : "adapter_error";
+  const hints: Record<ErrorCode, string> = {
+    invalid_config: "Invalid configuration. Run --help and check the job file.",
+    invalid_record:
+      "Invalid record. Inspect saved failure evidence in the state store.",
+    incompatible_state:
+      "A checkpoint version does not match the job or dataset. Inspect state and choose an explicit generation.",
+    adapter_error:
+      "Adapter operation failed. Inspect saved state; diagnostic logs omit provider error contents.",
+    cancelled: "Operation cancelled. Resume the same job or accepted digest.",
+    busy: "Another process owns this job. Stop it before recovery.",
+    stale_plan: "Plan or target changed or expired. Compare and review again.",
+    unsafe_write:
+      "Comparison commands never apply repairs. Use the apply command with an accepted digest and declared writer capabilities.",
+    corrupt_state:
+      "State failed validation. Preserve it and restore a verified backup.",
+    limit_exceeded:
+      "Work exceeded a configured processing bound. Narrow the scope.",
+  };
+  process.stderr.write(`data-reconciler: ${code}: ${hints[code]}\n`);
   process.exitCode =
-    error instanceof ReconciliationError && error.code === "invalid_config"
-      ? 4
-      : error instanceof ReconciliationError && error.code === "cancelled"
-        ? 130
-        : 1;
+    code === "invalid_config" ? 4 : code === "cancelled" ? 130 : 1;
 });

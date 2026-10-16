@@ -147,11 +147,21 @@ export function runValue(value: unknown): RunSummary {
   const after = objectValue(cp.after);
   const read = objectValue(raw.recordsRead);
   const summary = objectValue(raw.summary);
+  const replay = raw.replay === undefined ? undefined : objectValue(raw.replay);
   return {
     schemaVersion: "1",
     mode: "dry-run",
     jobId: stringValue(raw.jobId),
     fingerprint: stringValue(raw.fingerprint),
+    ...(replay === undefined
+      ? {}
+      : {
+          replay: {
+            jobId: stringValue(replay.jobId),
+            from: integerValue(replay.from, "replay start", 1),
+            to: integerValue(replay.to, "replay end", 1),
+          },
+        }),
     runId: stringValue(raw.runId),
     generatedAt: stringValue(raw.generatedAt),
     normalizationVersion: stringValue(raw.normalizationVersion),

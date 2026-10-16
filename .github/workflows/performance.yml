@@ -1,0 +1,37 @@
+name: Performance and generated scenarios
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  measured-envelope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.23.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsx tests/benchmark.ts > benchmark.json
+      - run:
+          pnpm exec vitest run tests/revisions.test.ts --reporter=json
+          --outputFile=generated-scenarios.json
+        env:
+          RECONCILER_TEST_SEEDS: 256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-node24-seed42
+          path: |
+            benchmark.json
+            generated-scenarios.json

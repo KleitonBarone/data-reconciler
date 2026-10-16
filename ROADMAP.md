@@ -279,7 +279,7 @@ through a multi-record plan.
 
 Depends on F and extends its failure scenarios.
 
-- [ ] G1. Replay explicit job and sequence ranges using recorded versions and
+- [x] G1. Replay explicit job and sequence ranges using recorded versions and
       evidence. Replay cannot advance the normal read checkpoint or rewrite old
       reports. Replaying repair operations reuses their original deduplication
       keys and still requires the original valid authorization or fresh
@@ -287,19 +287,19 @@ Depends on F and extends its failure scenarios.
 - [x] G2. Add bounded timeouts, retry budgets, page/record limits, cancellation,
       and backoff that honors provider retry hints. Keep provider-specific rate
       limits in adapters. Use controlled time and synchronization in tests.
-- [ ] G3. Emit run, page, difference, conflict, checkpoint, repair, and retry
+- [x] G3. Emit run, page, difference, conflict, checkpoint, repair, and retry
       events with job/run/operation IDs. Provide an application logging hook and
       concise CLI progress on stderr. Redact secrets and avoid copying raw
       records into diagnostic logs.
-- [ ] G4. Document and test backup/restore, interrupted runs, lost claims,
+- [x] G4. Document and test backup/restore, interrupted runs, lost claims,
       schema upgrades, expired cursors, stale checkpoints, and corruption.
       Recovery must distinguish rescan of observations from re-execution of
       repairs.
-- [ ] G5. Define evidence retention and explicit pruning so accepted plans
+- [x] G5. Define evidence retention and explicit pruning so accepted plans
       retain their dependencies. Document local access permissions and the
       sensitivity of raw evidence. Keep credentials outside reports and exported
       configuration.
-- [ ] G6. Publish repeatable scenarios and the measured support envelope. Keep
+- [x] G6. Publish repeatable scenarios and the measured support envelope. Keep
       small deterministic checks in regular CI and run larger seeded/performance
       suites separately with failure artifacts and seeds.
 

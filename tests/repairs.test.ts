@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import {
@@ -100,6 +100,36 @@ async function review(
 }
 
 describe("accepted repairs", () => {
+  it("restores an accepted backup without duplicating effects already present at the target", async () =>
+    fixture(async (job, store, _target, path) => {
+      const plan = await review(job, store);
+      const backup = join(dirname(path), "backup.sqlite");
+      const original = JSON.stringify([
+        ...store.durable.results(plan.body.runId),
+      ]);
+      store.backup(backup);
+      await applyPlan(job, { store, digest: plan.digest });
+      const bytes = readFileSync(path);
+      const restored = new SqliteReconciliationStore(backup);
+      try {
+        const recovered = await applyPlan(job, {
+          store: restored,
+          digest: plan.digest,
+        });
+        expect(recovered.succeeded).toBe(2);
+        expect(readFileSync(path)).toEqual(bytes);
+        expect(
+          JSON.stringify([...restored.durable.results(plan.body.runId)]),
+        ).toBe(original);
+        expect(
+          [...restored.repairs.history(plan.digest)]
+            .filter((row) => row.state === "succeeded")
+            .every((row) => row.receipt?.deduplicated),
+        ).toBe(true);
+      } finally {
+        restored.close();
+      }
+    }));
   it("defaults to no writes, preserves target-owned raw values and repeats with zero effects", async () =>
     fixture(async (job, store, target, path) => {
       const original = readFileSync(path);

@@ -1,13 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { setImmediate as yieldEventLoop } from "node:timers/promises";
 import { assertCheckpointCompatible } from "../contracts/adapter.js";
 import type { ReadAdapter } from "../contracts/adapter.js";
 import { ReconciliationError } from "./errors.js";
 import { contentHash } from "./json.js";
 import { jsonPolicy, policyJson, type NormalizationPolicy } from "./policy.js";
 import type { ReconciliationStore, RunSummary } from "./store.js";
-import type { ReconciliationResult } from "./model.js";
-import { classifyRecords } from "./classify.js";
+import { compareGroups } from "./comparison.js";
 import { normalizeRecord } from "./normalize.js";
 import { checkpointValue, recordValue, jsonValue } from "./validation.js";
 import { validateRuntime, withRetry, type RuntimePolicy } from "./runtime.js";
@@ -233,40 +231,19 @@ export async function compare(
         if (!page.hasMore) break;
       }
     }
-    const summary = {
-      total: 0,
-      equal: 0,
-      missing: 0,
-      changed: 0,
-      conflicting: 0,
-    };
-    let batch: ReconciliationResult[] = [];
-    for (const group of durable.groups(
+    const summary = await compareGroups(
+      durable,
       job.source.descriptor.id,
       job.target.descriptor.id,
-    )) {
-      checkCancelled(options.signal);
-      for (const result of classifyRecords(group.source, group.target)) {
-        summary.total++;
-        summary[result.classification]++;
-        if (result.classification !== "equal")
-          emit({
-            type:
-              result.classification === "conflicting"
-                ? "conflict"
-                : "difference",
-            jobId: job.id,
-            runId,
-          });
-        batch.push(result);
-      }
-      if (batch.length >= 250) {
-        durable.appendResults(runId, batch);
-        batch = [];
-        await yieldEventLoop();
-      }
-    }
-    if (batch.length > 0) durable.appendResults(runId, batch);
+      runId,
+      options.signal,
+      (conflict) =>
+        emit({
+          type: conflict ? "conflict" : "difference",
+          jobId: job.id,
+          runId,
+        }),
+    );
     if (after.source === null || after.target === null)
       throw new Error("Both read scopes must complete");
     const report: RunSummary = {

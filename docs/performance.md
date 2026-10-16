@@ -28,3 +28,11 @@ one million delivered records, 10,000 pages, 1,000 owners per identity, and
 Local input files are limited to 32 MiB, HTTP pages to 8 MiB. Terminal output
 shows at most 100 differences; JSON and NDJSON exports stream complete results.
 These limits reject excess work rather than silently dropping evidence.
+
+Regular checks exercise 16 seeded delivery/page permutations. The separate
+performance workflow runs 256 seeds and saves its JSON test report alongside the
+benchmark measurement, including on failure. Reproduce a failing seed from its
+test title, or set `RECONCILER_TEST_SEEDS` up to 1,000 and run
+`pnpm exec vitest run tests/revisions.test.ts`. Fault scenarios for HTTP rate
+limits, outages, cancellation, lost acknowledgements, replay, and backup restore
+run in `pnpm check`; none use external services.

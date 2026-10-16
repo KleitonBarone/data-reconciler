@@ -24,7 +24,10 @@ function snapshot(
   });
 }
 describe("record revisions", () => {
-  it.each(Array.from({ length: 16 }, (_, seed) => seed + 1))(
+  const seedCount = Number(process.env.RECONCILER_TEST_SEEDS ?? 16);
+  if (!Number.isSafeInteger(seedCount) || seedCount < 1 || seedCount > 1000)
+    throw new Error("Invalid generated scenario seed count");
+  it.each(Array.from({ length: seedCount }, (_, seed) => seed + 1))(
     "is invariant under seeded delivery and page permutations, seed %s",
     (seed) => {
       const originals = Array.from({ length: 40 }, (_, index) =>
