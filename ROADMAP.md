@@ -17,10 +17,11 @@ separate release actions; the package stays private.
 ## Release review follow-up
 
 The readiness review reproduced four defects despite the original green gates.
-Release readiness is pending these fixes and fresh CI on their final commit.
-Each slice includes a failing reproduction, focused checks, and `pnpm check`,
-then a local Conventional Commit and a push to `origin/main` as authorized for
-this follow-up. Verify both CI workflows on the final pushed revision.
+The fixes below are implemented and locally verified. Both CI workflows must
+pass on each pushed revision before accepting that revision. Each slice includes
+a failing reproduction, focused checks, and `pnpm check`, then a local
+Conventional Commit and a push to `origin/main` as authorized for this
+follow-up. Verify both CI workflows on the final pushed revision.
 
 - [x] Protect all identities in ambiguous current revisions, migrate the derived
       index, and reject unsafe operations from old reports and accepted plans.
@@ -34,9 +35,26 @@ this follow-up. Verify both CI workflows on the final pushed revision.
       and push `test(e2e): allow bounded Windows process workflows`.
 - [x] Return the original immutable acceptance for identical approval retries.
       Commit and push `fix(plans): make identical approval retries idempotent`.
-- [ ] Repeat seeded, performance, and installed-workflow verification; record
-      results and verify Linux/Windows CI and performance CI on the final push.
+- [x] Repeat seeded, performance, and installed-workflow verification and record
+      the results. Verify both CI workflows on the final documentation push.
       Commit and push `docs: record release review fixes and verification`.
+
+Local follow-up evidence: `pnpm check` passes 87 source tests and 10 compiled or
+installed-consumer tests. The expanded revision suite passes 256 reproducible
+delivery/page seeds plus six fixed scenarios. The final 100,000-record-per-side
+benchmark takes 17.04 seconds at 237.13 MiB peak RSS, within the 180-second and
+512 MiB budgets. See `tests/identity-claims.test.ts`, `tests/repairs.test.ts`,
+`tests/jobs.test.ts`, `tests/plans.test.ts`, and the compiled repair and
+approval scenarios for the failing-before and passing-after behaviors. Schema 5
+migration, legacy-plan rejection, lost acknowledgements, lookup outages, report
+preservation, and repeat-apply idempotency are covered. Registry publication
+remains separate.
+
+Implementation commit `f9801cb` passed
+[Linux/Windows CI](https://github.com/KleitonBarone/data-reconciler/actions/runs/38933637654)
+and the
+[performance/generated workflow](https://github.com/KleitonBarone/data-reconciler/actions/runs/38933637682).
+The final documentation push must also pass both workflows.
 
 ## Product and finish line
 

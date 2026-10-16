@@ -18,6 +18,10 @@ After the release-review identity-claims index fix, the same 100,000-record run
 measured 18.45 s, 10,839 delivered records/second, 253.86 MiB peak RSS, and a
 350,760,960-byte database. The extra derived index remains within both budgets.
 
+With all four review fixes applied, the final verification measured 17.04 s,
+11,738 delivered records/second, 237.13 MiB peak RSS, and the same
+350,760,960-byte database on Node.js 24.20.0 on Windows.
+
 The benchmark fails above 180 seconds or 512 MiB peak RSS. CI's named
 performance runner is `ubuntu-latest`, Node.js 24. These are acceptance budgets,
 not promised throughput for arbitrary providers. Keep the JSON measurement

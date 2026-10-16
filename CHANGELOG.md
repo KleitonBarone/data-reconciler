@@ -13,6 +13,9 @@
   and unfinished runs when comparison or replay cannot create a new run.
 - Return the original acceptance for identical approval retries, preserving its
   timestamp and bounds across processes. Changed authorization remains rejected.
+- Give compiled process workflows explicit time budgets after Windows CI
+  exceeded the default five seconds. Local verification passes 97 tests, the
+  expanded 256-seed run, and the 100,000-record-per-side benchmark.
 
 ## 1.0.0-rc.1
 
