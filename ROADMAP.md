@@ -244,7 +244,7 @@ end-to-end plan-and-review scenario proves all target bytes remain unchanged.
 
 Depends on E. Test only against disposable writable targets.
 
-- [ ] F1. Add a separate optional writer contract. Advertise supported
+- [x] F1. Add a separate optional writer contract. Advertise supported
       create/update, atomic precondition, deduplication, and result-verification
       capabilities. Read-only adapters stay valid. Implement a writable local
       target that can prove these guarantees before supporting any external

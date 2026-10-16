@@ -22,6 +22,8 @@ import { ReconciliationError } from "./core/errors.js";
 import { HttpJsonAdapter } from "./adapters/http-json-adapter.js";
 import { type RuntimePolicy, validateRuntime } from "./core/runtime.js";
 import { repairPolicyValue } from "./core/ownership.js";
+import { writerValue } from "./contracts/writer.js";
+import { SqliteRecordAdapter } from "./adapters/sqlite-record-adapter.js";
 
 export async function loadJob(path: string): Promise<ReconciliationJob> {
   const absolute = resolve(path);
@@ -42,6 +44,9 @@ export async function loadJob(path: string): Promise<ReconciliationJob> {
           throw new Error("Adapter must implement readPage");
         return {
           descriptor,
+          ...(endpoint.writer === undefined
+            ? {}
+            : { writer: writerValue(endpoint.writer) }),
           async readPage(request): Promise<ReadPageResult> {
             const result: unknown = await Reflect.apply(fn, value, [request]);
             const page = objectValue(result, "adapter page");
@@ -70,6 +75,8 @@ export async function loadJob(path: string): Promise<ReconciliationJob> {
         stringValue(endpoint.path, "adapter path"),
       );
       const id = stringValue(endpoint.id, "adapter id");
+      if (endpoint.type === "sqlite-records")
+        return new SqliteRecordAdapter(input, { id });
       if (endpoint.type === "commerce-json")
         return new JsonPageCommerceAdapter(input, { id });
       if (endpoint.type === "commerce-jsonl")

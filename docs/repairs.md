@@ -39,3 +39,16 @@ checkpoints, and job, dataset, schema, adapter, normalization, and policy
 versions. Planning and accepting do not call an adapter writer. Read-only
 adapters remain valid for comparison. The accepted plan is separate from any
 execution record.
+
+The optional writer contract separately declares create, update, atomic
+preconditions, durable deduplication, and result verification. The bundled
+`SqliteRecordAdapter` targets an explicitly initialized local database. Use
+`initializeSqliteTarget(path, records)` once; it refuses existing files.
+Constructing or reading this adapter never creates or changes the target.
+Declarative config uses
+`{ "id": "target", "type": "sqlite-records", "path": "target.sqlite" }`.
+
+`verifyRepairWriter(adapter)` is a reusable destructive conformance check for an
+empty disposable target. Never point it at application data. It checks
+create/update, stale revisions, changed deduplication requests, read-back, and
+repeat application without further effects.

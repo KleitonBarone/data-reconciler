@@ -26,6 +26,7 @@ import {
   type RepairPolicy,
 } from "./ownership.js";
 import { ReconciliationError } from "./errors.js";
+import { pointerPath } from "./policy.js";
 import type { ReconciliationStore } from "./store.js";
 
 export type RepairOperation = {
@@ -186,6 +187,16 @@ export function createPlan(
     );
     if (owned.length === 0) {
       skip("target_owned");
+      continue;
+    }
+    if (
+      owned.some((field) =>
+        job.normalization?.ignore?.some((path) =>
+          path.startsWith(`${pointerPath("", field)}/`),
+        ),
+      )
+    ) {
+      skip("ignored_owned_field");
       continue;
     }
     const after: Record<string, import("../contracts/adapter.js").JsonValue> = {

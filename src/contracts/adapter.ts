@@ -1,3 +1,5 @@
+import type { RepairWriter } from "./writer.js";
+
 export const ADAPTER_CONTRACT_VERSION = 1 as const;
 
 export type JsonPrimitive = boolean | number | string | null;
@@ -58,11 +60,11 @@ export type ReadPageResult = {
 };
 
 /**
- * Version 1 is intentionally read-only. Repair methods will arrive with the
- * controlled-repair milestone and will use a separate capability contract.
+ * Read capability remains usable without the separate optional writer contract.
  */
 export type ReadAdapter = {
   readonly descriptor: AdapterDescriptor;
+  readonly writer?: RepairWriter;
   readPage(request: ReadPageRequest): Promise<ReadPageResult>;
 };
 
