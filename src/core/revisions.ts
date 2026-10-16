@@ -1,5 +1,6 @@
 import type { RecordSnapshot } from "./model.js";
 import { canonicalJson, compareText } from "./json.js";
+import { ReconciliationError } from "./errors.js";
 
 /** Delivery order cannot supersede a newer revision or resolve an equal-time tie. */
 export function mergeObservations(
@@ -41,6 +42,11 @@ export function mergeObservations(
       const ordered = [...variants.entries()]
         .sort(([left], [right]) => compareText(left, right))
         .map(([, record]) => record);
+      if (ordered.length > 1000)
+        throw new ReconciliationError(
+          "limit_exceeded",
+          "A record exceeds the 1000-revision conflict limit",
+        );
       const [primary, ...conflicts] = ordered;
       if (primary === undefined)
         throw new Error("Revision group has no records");

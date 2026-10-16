@@ -102,14 +102,14 @@ export async function compare(
   const runId = options.createRunId?.() ?? randomUUID();
   const durable = store.durable;
   durable.acquire(runId);
-  const before = {
-    source: store.getCheckpoint(job.source.descriptor.id),
-    target: store.getCheckpoint(job.target.descriptor.id),
-  };
-  const after = { ...before };
-  const recordsRead = { source: 0, target: 0 };
-  let pages = 0;
   try {
+    const before = {
+      source: store.getCheckpoint(job.source.descriptor.id),
+      target: store.getCheckpoint(job.target.descriptor.id),
+    };
+    const after = { ...before };
+    const recordsRead = { source: 0, target: 0 };
+    let pages = 0;
     durable.begin(runId, (options.now?.() ?? new Date()).toISOString());
     options.onEvent?.({ type: "run_started", jobId: job.id, runId });
     for (const side of ["source", "target"] as const) {

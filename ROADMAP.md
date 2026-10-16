@@ -184,7 +184,7 @@ remain machine-readable.
 
 Depends on C. Finish this before adding a write capability.
 
-- [ ] D1. Version the SQLite schema and validate persisted rows. Add tested,
+- [x] D1. Version the SQLite schema and validate persisted rows. Add tested,
       transactional migrations from the prototype database. Store report,
       normalization, policy, contract, and adapter versions explicitly.
       Historical reports retain the interpretation and evidence they were
@@ -203,7 +203,7 @@ Depends on C. Finish this before adding a write capability.
 - [x] D5. Serialize writers for the same job with a durable claim or transaction
       plus expected checkpoint checks. Reject a stale concurrent commit. Define
       expiry, recovery, and behavior when another process still owns the job.
-- [ ] D6. Detect corruption and incompatible state before advancing checkpoints.
+- [x] D6. Detect corruption and incompatible state before advancing checkpoints.
       Add inspect, backup, and explicit rebuild procedures that preserve the
       original store. Rebuilding comparisons cannot erase prior repair
       decisions.

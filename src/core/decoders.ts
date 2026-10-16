@@ -2,6 +2,7 @@ import type {
   RecordSnapshot,
   ReconciliationResult,
   FieldDifference,
+  ReconciliationReport,
 } from "./model.js";
 import { assertJson, parseTimestamp } from "./json.js";
 import {
@@ -183,4 +184,19 @@ export function decode<T>(text: string, validate: (value: unknown) => T): T {
   const value: unknown = JSON.parse(text);
   assertJson(value);
   return validate(value);
+}
+
+export function reportValue(value: unknown): ReconciliationReport {
+  const raw = objectValue(value, "legacy report");
+  const metadata = runValue({ ...raw, jobId: "legacy", fingerprint: "legacy" });
+  if (!Array.isArray(raw.results) || !Array.isArray(raw.observationsRead))
+    throw new Error("Report evidence is missing");
+  const { jobId: _jobId, fingerprint: _fingerprint, ...report } = metadata;
+  void _jobId;
+  void _fingerprint;
+  return {
+    ...report,
+    results: raw.results.map(resultValue),
+    observationsRead: raw.observationsRead.map(snapshotValue),
+  };
 }

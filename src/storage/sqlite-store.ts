@@ -9,7 +9,9 @@ import type {
 import type { ReconciliationStore } from "../core/store.js";
 import { ReconciliationError } from "../core/errors.js";
 import { migrateRuns, SqliteRunStore } from "./run-store.js";
-import { snapshotValue, decode } from "../core/decoders.js";
+import { snapshotValue, reportValue, decode } from "../core/decoders.js";
+import { checkpointValue } from "../core/validation.js";
+import { closeSync, openSync } from "node:fs";
 
 export type CommitFaultHooks = {
   /** Tests use this to prove that SQLite rolls back before checkpoints advance. */
@@ -37,9 +39,37 @@ export class SqliteReconciliationStore implements ReconciliationStore {
 
   constructor(path: string) {
     this.database = new DatabaseSync(path);
-    this.database.exec("PRAGMA foreign_keys = ON");
-    this.database.exec("PRAGMA journal_mode = WAL");
-    this.database.exec(`
+    let migrating = false;
+    try {
+      const version = this.database
+        .prepare("PRAGMA user_version")
+        .get()?.user_version;
+      const tables = this.database
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+        )
+        .all();
+      if (typeof version !== "number" || version > 1)
+        throw new ReconciliationError(
+          "incompatible_state",
+          "Unsupported SQLite schema version",
+        );
+      if (
+        tables.length > 0 &&
+        !["checkpoints", "observations", "reports"].every((name) =>
+          tables.some((table) => table.name === name),
+        )
+      )
+        throw new ReconciliationError(
+          "corrupt_state",
+          "Database is not a recognizable reconciliation store",
+        );
+      this.database.exec("PRAGMA foreign_keys = ON");
+      this.database.exec("PRAGMA journal_mode = WAL");
+      this.database.exec("PRAGMA busy_timeout = 5000");
+      this.database.exec("BEGIN IMMEDIATE");
+      migrating = true;
+      this.database.exec(`
       CREATE TABLE IF NOT EXISTS checkpoints (
         adapter_id TEXT PRIMARY KEY,
         contract_version INTEGER NOT NULL,
@@ -68,20 +98,29 @@ export class SqliteReconciliationStore implements ReconciliationStore {
         report_json TEXT NOT NULL
       ) STRICT;
     `);
-    const checkpointColumns = this.database
-      .prepare("PRAGMA table_info(checkpoints)")
-      .all();
-    if (!checkpointColumns.some((column) => column.name === "checkpoint_json"))
+      const checkpointColumns = this.database
+        .prepare("PRAGMA table_info(checkpoints)")
+        .all();
+      if (
+        !checkpointColumns.some((column) => column.name === "checkpoint_json")
+      )
+        this.database.exec(
+          "ALTER TABLE checkpoints ADD COLUMN checkpoint_json TEXT",
+        );
       this.database.exec(
-        "ALTER TABLE checkpoints ADD COLUMN checkpoint_json TEXT",
+        "CREATE TABLE IF NOT EXISTS failures (id INTEGER PRIMARY KEY, error_json TEXT NOT NULL) STRICT",
       );
-    this.database.exec(
-      "CREATE TABLE IF NOT EXISTS failures (id INTEGER PRIMARY KEY, error_json TEXT NOT NULL) STRICT",
-    );
-    this.database.exec(
-      "CREATE TABLE IF NOT EXISTS jobs (job_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL) STRICT",
-    );
-    migrateRuns(this.database);
+      this.database.exec(
+        "CREATE TABLE IF NOT EXISTS jobs (job_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL) STRICT",
+      );
+      migrateRuns(this.database);
+      this.database.exec("COMMIT");
+      migrating = false;
+    } catch (error) {
+      if (migrating) this.database.exec("ROLLBACK");
+      this.database.close();
+      throw error;
+    }
   }
 
   getCheckpoint(adapterId: string, namespace = ""): AdapterCheckpoint | null {
@@ -104,7 +143,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
       typeof row.checkpoint_json === "string"
         ? parseStoredJson(row.checkpoint_json)
         : null;
-    return {
+    const base: AdapterCheckpoint = {
       contractVersion: ADAPTER_CONTRACT_VERSION,
       adapterVersion: row.adapter_version,
       schemaVersion: row.schema_version,
@@ -122,6 +161,24 @@ export class SqliteReconciliationStore implements ReconciliationStore {
         ? { prefixHash: extras.prefixHash }
         : {}),
     };
+    try {
+      if (row.checkpoint_json !== null && row.checkpoint_json !== undefined) {
+        if (typeof row.checkpoint_json !== "string")
+          throw new Error("Checkpoint JSON is not text");
+        const validated = decode(row.checkpoint_json, checkpointValue);
+        if (JSON.stringify(validated) !== JSON.stringify(base))
+          throw new Error("Checkpoint metadata disagrees with its cursor");
+        return validated;
+      }
+      return checkpointValue(base);
+    } catch (error) {
+      throw new ReconciliationError(
+        "corrupt_state",
+        "Stored checkpoint failed validation",
+        null,
+        { cause: error },
+      );
+    }
   }
 
   loadObservations(
@@ -149,7 +206,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
       .get(runId);
     if (row === undefined) return null;
     if (!isJsonRow(row)) throw new Error(`Stored report ${runId} is invalid`);
-    return parseStoredJson(row.json) as ReconciliationReport;
+    return decode(row.json, reportValue);
   }
 
   countReports(): number {
@@ -282,6 +339,40 @@ export class SqliteReconciliationStore implements ReconciliationStore {
 
   get durable() {
     return new SqliteRunStore(this.database, "");
+  }
+
+  inspect() {
+    const integrity = this.database.prepare("PRAGMA quick_check").all();
+    if (integrity.some((row) => row.quick_check !== "ok"))
+      throw new ReconciliationError(
+        "corrupt_state",
+        "SQLite integrity check failed",
+      );
+    return {
+      schemaVersion: this.database.prepare("PRAGMA user_version").get()
+        ?.user_version,
+      jobs: this.database
+        .prepare("SELECT * FROM jobs ORDER BY job_id LIMIT 100")
+        .all(),
+      runs: this.database
+        .prepare(
+          "SELECT run_id,job_id,status,started_at,error FROM run_state ORDER BY rowid DESC LIMIT 100",
+        )
+        .all(),
+      claims: this.database
+        .prepare("SELECT * FROM job_claims ORDER BY job_id LIMIT 100")
+        .all(),
+      evidence: this.database
+        .prepare(
+          "SELECT MIN(sequence) AS first, MAX(sequence) AS last, COUNT(*) AS count FROM deliveries",
+        )
+        .get(),
+    };
+  }
+
+  backup(destination: string): void {
+    closeSync(openSync(destination, "wx", 0o600));
+    this.database.prepare("VACUUM INTO ?").run(destination);
   }
 }
 
