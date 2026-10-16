@@ -25,7 +25,7 @@ this follow-up. Verify both CI workflows on the final pushed revision.
 - [x] Protect all identities in ambiguous current revisions, migrate the derived
       index, and reject unsafe operations from old reports and accepted plans.
       Commit and push `fix(core): block repairs for every ambiguous identity`.
-- [ ] Preserve unknown writes through lookup failures and crash recovery. Commit
+- [x] Preserve unknown writes through lookup failures and crash recovery. Commit
       and push `fix(repairs): preserve uncertainty across recovery attempts`.
 - [ ] Reject run-ID collisions without changing existing runs or reports. Commit
       and push `fix(storage): preserve runs when IDs collide`.

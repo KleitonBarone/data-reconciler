@@ -14,6 +14,7 @@ import {
   validateAcceptedPlan,
   createCheckpoint,
   RetryableAdapterError,
+  ReconciliationError,
   type AdapterRecord,
   type ReconciliationJob,
 } from "../src/index.js";
@@ -100,6 +101,92 @@ async function review(
 }
 
 describe("accepted repairs", () => {
+  it("keeps a committed write unknown through lookup failure, cancellation, and a rejected retry", async () =>
+    fixture(async (job, store, target, path) => {
+      let lookupsUnavailable = false;
+      let writes = 0;
+      let hideReceipt = false;
+      const wrapped: ReconciliationJob = {
+        ...job,
+        target: {
+          descriptor: target.descriptor,
+          readPage: target.readPage.bind(target),
+          writer: {
+            ...target.writer,
+            lookup(key, signal) {
+              if (lookupsUnavailable)
+                return Promise.reject(new Error("receipt lookup unavailable"));
+              return hideReceipt
+                ? Promise.resolve(null)
+                : target.writer.lookup(key, signal);
+            },
+            async apply(write, signal) {
+              writes++;
+              if (hideReceipt)
+                throw new ReconciliationError(
+                  "stale_plan",
+                  "Rejected retry cannot disprove an earlier effect",
+                );
+              const receipt = await target.writer.apply(write, signal);
+              if (writes === 1)
+                throw new Error("lost acknowledgement after commit");
+              return receipt;
+            },
+          },
+        },
+      };
+      const plan = await review(wrapped, store);
+      expect(
+        await applyPlan(wrapped, { store, digest: plan.digest }),
+      ).toMatchObject({ unknown: 1, failed: 0 });
+      const committed = readFileSync(path);
+      lookupsUnavailable = true;
+      expect(
+        await applyPlan(wrapped, { store, digest: plan.digest }),
+      ).toMatchObject({ unknown: 1, failed: 0 });
+      expect(writes).toBe(1);
+      expect(readFileSync(path)).toEqual(committed);
+      const controller = new AbortController();
+      expect(
+        await applyPlan(wrapped, {
+          store,
+          digest: plan.digest,
+          signal: controller.signal,
+          onEvent(event) {
+            if (event.type === "repair_intent") controller.abort();
+          },
+        }),
+      ).toMatchObject({ unknown: 1, failed: 0, cancelled: true });
+      lookupsUnavailable = false;
+      hideReceipt = true;
+      expect(
+        await applyPlan(wrapped, { store, digest: plan.digest }),
+      ).toMatchObject({ unknown: 1, failed: 0 });
+      hideReceipt = false;
+      expect(
+        await applyPlan(wrapped, { store, digest: plan.digest }),
+      ).toMatchObject({ succeeded: 2, unknown: 0, failed: 0 });
+      const completed = readFileSync(path);
+      expect(
+        await applyPlan(wrapped, { store, digest: plan.digest }),
+      ).toMatchObject({ skipped: 2, succeeded: 0 });
+      expect(readFileSync(path)).toEqual(completed);
+      const db = new DatabaseSync(path, { readOnly: true });
+      try {
+        expect(
+          db.prepare("SELECT COUNT(*) n FROM target_events").get()?.n,
+        ).toBe(3);
+      } finally {
+        db.close();
+      }
+      const firstId = plan.body.operations[0]?.id;
+      const states = [...store.repairs.history(plan.digest)]
+        .filter((outcome) => outcome.operationId === firstId)
+        .map((outcome) => outcome.state);
+      expect(states).not.toContain("failed");
+      expect(states.slice(states.indexOf("unknown"))).not.toContain("pending");
+      expect(states.at(-1)).toBe("succeeded");
+    }));
   it("restores an accepted backup without duplicating effects already present at the target", async () =>
     fixture(async (job, store, _target, path) => {
       const plan = await review(job, store);

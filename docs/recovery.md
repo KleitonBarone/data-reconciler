@@ -50,6 +50,12 @@ the same accepted digest. Target receipts establish prior success. Tests prove
 this does not repeat target effects or change the old comparison's meaning.
 Never delete target deduplication receipts to make a stale plan run again.
 
+A receipt-lookup outage cannot turn an earlier unknown write into a failed
+write. Recovery retains uncertainty for unknown outcomes and crash-left intents
+until a valid receipt resolves them. Cancellation or rejection of a later retry
+does not disprove an earlier effect. Restore lookup access and resume the same
+accepted plan; do not clear intent or outcome rows to force a retry.
+
 Expired or replaced cursors require a rescan into a new generation. Malformed
 SQLite rows fail runtime validation. Preserve corrupt files before restoring a
 backup; do not edit checkpoints or audit JSON manually. A stale PID claim is

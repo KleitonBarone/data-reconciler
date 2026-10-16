@@ -6,6 +6,9 @@
   including operations in reports and accepted plans saved before the fix.
 - Migrate SQLite state to schema 5 with a derived identity-claims index.
   Preserve checkpoints and historical report, plan, acceptance, and audit JSON.
+- Keep earlier uncertain writes unknown through receipt-lookup outages,
+  cancellation, and rejected retries. Recover crash-left intents through target
+  receipts or durable deduplication without repeating completed effects.
 
 ## 1.0.0-rc.1
 

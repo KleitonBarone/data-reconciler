@@ -140,6 +140,7 @@ it.each(["before", "after"] as const)(
     const store = join(directory, "state.sqlite");
     const config = join(directory, "job.mjs");
     const marker = join(directory, "resumed");
+    const lookupOutage = join(directory, "lookup-unavailable");
     const cli = resolve("dist/cli.js");
     const run = (...args: string[]) =>
       spawnSync(
@@ -193,7 +194,10 @@ it.each(["before", "after"] as const)(
       import { existsSync } from "node:fs";
       const target = new SqliteRecordAdapter(${JSON.stringify(target)},{id:"target"});
       export default {id:"crash-repairs",source:new JsonFileAdapter({id:"source",path:${JSON.stringify(source)},format:"json",schemaVersion:"1",projection:{id:"/id",updatedAt:"/time",identity:{kind:"sku",paths:["/sku"]},fields:{stock:"/stock"}}}),
-        target:{descriptor:target.descriptor,readPage:target.readPage.bind(target),writer:{...target.writer,async apply(write,signal){
+        target:{descriptor:target.descriptor,readPage:target.readPage.bind(target),writer:{...target.writer,lookup(key,signal){
+          if(existsSync(${JSON.stringify(lookupOutage)})) throw new Error("receipt lookup unavailable");
+          return target.writer.lookup(key,signal);
+        },async apply(write,signal){
           if(!existsSync(${JSON.stringify(marker)}) && ${JSON.stringify(phase)} === "before") process.kill(process.pid,"SIGKILL");
           const receipt = await target.writer.apply(write,signal);
           if(!existsSync(${JSON.stringify(marker)}) && ${JSON.stringify(phase)} === "after") process.kill(process.pid,"SIGKILL");
@@ -238,6 +242,16 @@ it.each(["before", "after"] as const)(
         state.close();
       }
       await writeFile(marker, "resume");
+      const beforeLookupFailure = await readFile(target);
+      await writeFile(lookupOutage, "outage");
+      const unavailable = run("apply", "--digest", plan.digest);
+      expect(unavailable.status, unavailable.stderr).toBe(1);
+      expect(JSON.parse(unavailable.stdout) as unknown).toMatchObject({
+        unknown: 1,
+        failed: 0,
+      });
+      expect(await readFile(target)).toEqual(beforeLookupFailure);
+      await rm(lookupOutage);
       expect(success("apply", "--digest", plan.digest)).toMatchObject({
         succeeded: 2,
         failed: 0,
@@ -267,8 +281,8 @@ it.each(["before", "after"] as const)(
         db.close();
       }
       const audit = success("audit", "--digest", plan.digest);
-      expect(audit.verifications).toHaveLength(2);
-      expect(audit.attempts).toHaveLength(2);
+      expect(audit.verifications).toHaveLength(3);
+      expect(audit.attempts).toHaveLength(3);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

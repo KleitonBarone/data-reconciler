@@ -189,6 +189,9 @@ export async function applyPlan(
         summary.pending--;
         continue;
       }
+      // A prior intent may have reached the target even when no outcome was saved.
+      const previouslyUncertain =
+        previous?.state === "unknown" || previous?.state === "pending";
       const record = (
         state: RepairOutcome["state"],
         receipt: WriteReceipt | null,
@@ -203,7 +206,11 @@ export async function applyPlan(
           receipt,
           errorCode,
         });
-      record("pending", null, null);
+      record(
+        previouslyUncertain ? "unknown" : "pending",
+        null,
+        previous?.errorCode ?? null,
+      );
       emit("repair_intent", operation.id);
       let sent = false;
       try {
@@ -257,9 +264,10 @@ export async function applyPlan(
       } catch (error) {
         const code =
           error instanceof ReconciliationError ? error.code : "adapter_error";
-        // A rejected precondition proves no write. Other post-send failures are uncertain.
+        // A rejection rules out this dispatch, not an earlier uncertain attempt.
         const uncertain =
-          sent && code !== "stale_plan" && code !== "unsafe_write";
+          previouslyUncertain ||
+          (sent && code !== "stale_plan" && code !== "unsafe_write");
         record(uncertain ? "unknown" : "failed", null, code);
         if (uncertain) summary.unknown++;
         else summary.failed++;
