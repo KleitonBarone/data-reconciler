@@ -11,6 +11,7 @@ import { classifyRecords } from "./classify.js";
 import { normalizeRecord } from "./normalize.js";
 import { checkpointValue, recordValue, jsonValue } from "./validation.js";
 import { validateRuntime, withRetry, type RuntimePolicy } from "./runtime.js";
+import { repairPolicyValue, type RepairPolicy } from "./ownership.js";
 
 export type ReconciliationJob = {
   readonly id: string;
@@ -20,6 +21,7 @@ export type ReconciliationJob = {
   readonly pageSize?: number;
   readonly datasets?: { readonly source: string; readonly target: string };
   readonly runtime?: RuntimePolicy;
+  readonly repair?: RepairPolicy;
 };
 export type RunEvent = {
   readonly type:
@@ -47,6 +49,7 @@ export type CompareOptions = {
 
 export function defineJob<const T extends ReconciliationJob>(job: T): T {
   validateRuntime(job.runtime);
+  if (job.repair !== undefined) repairPolicyValue(job.repair);
   if (job.id.trim() === "")
     throw new ReconciliationError("invalid_config", "Job ID is required");
   if (job.source.descriptor.id === job.target.descriptor.id)
@@ -95,6 +98,10 @@ export function jobFingerprint(job: ReconciliationJob): string {
       datasetId: job.datasets?.target ?? job.target.descriptor.datasetId ?? "",
     },
     normalization: policyJson(job.normalization ?? jsonPolicy),
+    repair:
+      job.repair === undefined
+        ? null
+        : jsonValue(repairPolicyValue(job.repair)),
   });
 }
 

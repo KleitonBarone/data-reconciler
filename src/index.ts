@@ -17,3 +17,5 @@ export type { RunSummary, DurableStore } from "./core/store.js";
 export * from "./reporters/export.js";
 export * from "./core/runtime.js";
 export * from "./adapters/http-json-adapter.js";
+export * from "./core/ownership.js";
+export * from "./core/plans.js";

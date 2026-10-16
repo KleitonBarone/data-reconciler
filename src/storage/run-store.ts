@@ -13,7 +13,7 @@ import { mergeObservations } from "../core/revisions.js";
 
 export function migrateRuns(db: DatabaseSync): void {
   const version = db.prepare("PRAGMA user_version").get()?.user_version;
-  if (typeof version !== "number" || version > 1)
+  if (typeof version !== "number" || version > 2)
     throw new ReconciliationError(
       "incompatible_state",
       "Unsupported SQLite schema version",
@@ -24,7 +24,6 @@ export function migrateRuns(db: DatabaseSync): void {
     CREATE TABLE IF NOT EXISTS deliveries (sequence INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL REFERENCES run_state(run_id), job_id TEXT NOT NULL, snapshot_json TEXT NOT NULL) STRICT;
     CREATE INDEX IF NOT EXISTS deliveries_job ON deliveries(job_id, sequence);
     CREATE TABLE IF NOT EXISTS job_claims (job_id TEXT PRIMARY KEY, owner TEXT NOT NULL, pid INTEGER NOT NULL) STRICT;
-    PRAGMA user_version = 1;
   `);
 }
 

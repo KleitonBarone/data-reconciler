@@ -50,6 +50,7 @@ export function normalizeRecord(
     evidence: record.evidence,
     normalizationVersion: policy.version,
     ...(record.deleted ? { deleted: true } : {}),
+    ...(record.revision === undefined ? {} : { revision: record.revision }),
   };
 }
 

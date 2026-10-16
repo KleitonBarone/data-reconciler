@@ -21,6 +21,7 @@ export type RecordSnapshot = {
   readonly evidence: SourceEvidence;
   readonly normalizationVersion: string;
   readonly deleted?: boolean;
+  readonly revision?: string;
   readonly revisionConflicts?: readonly RecordSnapshot[];
 };
 

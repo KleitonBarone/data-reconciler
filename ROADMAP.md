@@ -219,19 +219,19 @@ and set measured release budgets and documented limits before H.
 
 Depends on D. This phase proposes changes and performs zero adapter writes.
 
-- [ ] E1. Define field ownership and job direction explicitly. Unknown
+- [x] E1. Define field ownership and job direction explicitly. Unknown
       ownership, missing identities, duplicate identities, ambiguous revisions,
       and incomplete reads cannot generate an applicable repair. Classifications
       remain evidence, not authorization.
-- [ ] E2. Build deterministic create and update operations from accepted
+- [x] E2. Build deterministic create and update operations from accepted
       differences. Each operation contains job and dataset identities, record
       ID, before/after values, source evidence references, target precondition,
       deduplication key, and all relevant policy and schema versions.
-- [ ] E3. Store immutable plans with a content digest. Acceptance identifies the
+- [x] E3. Store immutable plans with a content digest. Acceptance identifies the
       exact digest and selected operation IDs. Define expiration, allowed
       fields, maximum operations, and maximum affected records. An empty or
       modified plan cannot be mistaken for an accepted plan.
-- [ ] E4. Add library and CLI paths to create, inspect, export, and accept a
+- [x] E4. Add library and CLI paths to create, inspect, export, and accept a
       plan. Acceptance is durable and separate from execution. Reject
       incompatible, stale, or changed plans with actionable errors.
 

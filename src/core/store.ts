@@ -1,4 +1,5 @@
 import type { AdapterCheckpoint } from "../contracts/adapter.js";
+import type { PlanStore } from "./plans.js";
 import type {
   ReconciliationReport,
   RecordSnapshot,
@@ -50,6 +51,7 @@ export type CommitRunInput = {
 /** Persistence operations required by comparison; no SQLite types cross this boundary. */
 export type ReconciliationStore = {
   readonly durable: DurableStore;
+  readonly plans: PlanStore;
   getCheckpoint(adapterId: string): AdapterCheckpoint | null;
   loadObservations(adapterId: string, side: Side): readonly RecordSnapshot[];
   commitRun(input: CommitRunInput, hooks?: CommitFaultHooks): void;

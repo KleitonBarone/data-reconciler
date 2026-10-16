@@ -21,6 +21,7 @@ import {
 import { ReconciliationError } from "./core/errors.js";
 import { HttpJsonAdapter } from "./adapters/http-json-adapter.js";
 import { type RuntimePolicy, validateRuntime } from "./core/runtime.js";
+import { repairPolicyValue } from "./core/ownership.js";
 
 export async function loadJob(path: string): Promise<ReconciliationJob> {
   const absolute = resolve(path);
@@ -98,6 +99,9 @@ export async function loadJob(path: string): Promise<ReconciliationJob> {
       ...(raw.runtime === undefined
         ? {}
         : { runtime: runtimeValue(raw.runtime) }),
+      ...(raw.repair === undefined
+        ? {}
+        : { repair: repairPolicyValue(raw.repair) }),
       ...(datasets === undefined
         ? {}
         : {

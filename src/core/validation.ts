@@ -131,6 +131,9 @@ export function recordValue(value: unknown): AdapterRecord {
     comparable: jsonObject(raw.comparable),
     evidence: evidenceValue(raw.evidence),
     ...(raw.deleted === undefined ? {} : { deleted: raw.deleted }),
+    ...(raw.revision === undefined
+      ? {}
+      : { revision: stringValue(raw.revision) }),
   };
 }
 export function policyValue(value: unknown): NormalizationPolicy {

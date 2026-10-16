@@ -12,6 +12,7 @@ import { migrateRuns, SqliteRunStore } from "./run-store.js";
 import { snapshotValue, reportValue, decode } from "../core/decoders.js";
 import { checkpointValue } from "../core/validation.js";
 import { closeSync, openSync } from "node:fs";
+import { migratePlans, SqlitePlanStore } from "./plan-store.js";
 
 export type CommitFaultHooks = {
   /** Tests use this to prove that SQLite rolls back before checkpoints advance. */
@@ -49,7 +50,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
           "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
         )
         .all();
-      if (typeof version !== "number" || version > 1)
+      if (typeof version !== "number" || version > 2)
         throw new ReconciliationError(
           "incompatible_state",
           "Unsupported SQLite schema version",
@@ -117,6 +118,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
         "CREATE TABLE IF NOT EXISTS jobs (job_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL) STRICT",
       );
       migrateRuns(this.database);
+      migratePlans(this.database);
       this.database.exec("COMMIT");
       migrating = false;
     } catch (error) {
@@ -332,6 +334,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
       );
     return {
       durable: new SqliteRunStore(this.database, jobId),
+      plans: this.plans,
       getCheckpoint: (id) => this.getCheckpoint(id, jobId),
       loadObservations: (id, side) => this.loadObservations(id, side, jobId),
       commitRun: (input, hooks) => this.commitRun(input, hooks, jobId),
@@ -342,6 +345,9 @@ export class SqliteReconciliationStore implements ReconciliationStore {
 
   get durable() {
     return new SqliteRunStore(this.database, "");
+  }
+  get plans() {
+    return new SqlitePlanStore(this.database);
   }
 
   inspect() {

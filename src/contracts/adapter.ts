@@ -41,6 +41,8 @@ export type AdapterRecord = {
   readonly comparable: JsonObject;
   readonly evidence: SourceEvidence;
   readonly deleted?: boolean;
+  /** Opaque provider revision suitable for an atomic write precondition. */
+  readonly revision?: string;
 };
 
 export type ReadPageRequest = {

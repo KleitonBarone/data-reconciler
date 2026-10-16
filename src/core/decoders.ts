@@ -35,6 +35,9 @@ export function snapshotValue(value: unknown): RecordSnapshot {
     comparable: jsonObject(raw.comparable),
     evidence: evidenceValue(raw.evidence),
     normalizationVersion: stringValue(raw.normalizationVersion),
+    ...(raw.revision === undefined
+      ? {}
+      : { revision: stringValue(raw.revision) }),
     ...(raw.deleted === true ? { deleted: true } : {}),
     ...(conflicts === undefined
       ? {}

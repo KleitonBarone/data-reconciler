@@ -13,6 +13,7 @@ import { compare } from "./core/job.js";
 import { ReconciliationError } from "./core/errors.js";
 import { reportChunks } from "./reporters/export.js";
 import { once } from "node:events";
+import { createPlan, acceptPlan } from "./core/plans.js";
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -25,6 +26,12 @@ async function main(): Promise<void> {
       to: { type: "string" },
       run: { type: "string" },
       generation: { type: "string" },
+      digest: { type: "string" },
+      operations: { type: "string" },
+      all: { type: "boolean", default: false },
+      fields: { type: "string" },
+      "max-operations": { type: "string" },
+      "max-records": { type: "string" },
       "dry-run": { type: "boolean", default: true },
       format: { type: "string", default: "human" },
       help: { type: "boolean", short: "h", default: false },
@@ -37,6 +44,62 @@ async function main(): Promise<void> {
 
   if (values.help || positionals.length === 0) {
     process.stdout.write(`${usage()}\n`);
+    return;
+  }
+  if (["plan", "show-plan", "accept"].includes(positionals[0] ?? "")) {
+    const command = positionals[0];
+    if (positionals.length !== 1)
+      throw new ReconciliationError("invalid_config", "Expected one command");
+    const job =
+      command === "show-plan"
+        ? null
+        : await loadJob(required(values.config, "--config"));
+    const store = new SqliteReconciliationStore(
+      resolve(required(values.store, "--store")),
+    );
+    try {
+      if (command === "show-plan") {
+        const plan = store.plans.get(required(values.digest, "--digest"));
+        if (plan === null)
+          throw new ReconciliationError("stale_plan", "Plan not found");
+        process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
+      } else if (job !== null && command === "plan") {
+        const plan = createPlan(job, {
+          store,
+          runId: required(values.run, "--run"),
+        });
+        process.stdout.write(
+          values.format === "human"
+            ? `Plan ${plan.digest}\n${plan.body.operations.length} operations, ${plan.body.skipped.count} skipped. No target writes.\n`
+            : `${JSON.stringify(plan, null, 2)}\n`,
+        );
+      } else if (job !== null) {
+        const digest = required(values.digest, "--digest");
+        const plan = store.plans.get(digest);
+        if (plan === null)
+          throw new ReconciliationError("stale_plan", "Plan not found");
+        if (values.all && values.operations !== undefined)
+          throw new ReconciliationError(
+            "invalid_config",
+            "Choose --all or --operations, not both",
+          );
+        const accepted = acceptPlan(job, {
+          store,
+          digest,
+          operationIds: values.all
+            ? plan.body.operations.map((op) => op.id)
+            : required(values.operations, "--operations or --all").split(","),
+          allowedFields: required(values.fields, "--fields").split(","),
+          maxOperations: Number(
+            required(values["max-operations"], "--max-operations"),
+          ),
+          maxRecords: Number(required(values["max-records"], "--max-records")),
+        });
+        process.stdout.write(`${JSON.stringify(accepted, null, 2)}\n`);
+      }
+    } finally {
+      store.close();
+    }
     return;
   }
   if (["inspect", "backup", "export"].includes(positionals[0] ?? "")) {
@@ -159,7 +222,7 @@ async function main(): Promise<void> {
 
 function required(value: string | undefined, option: string): string {
   if (value === undefined || value === "") {
-    throw new Error(`${option} requires a path`);
+    throw new ReconciliationError("invalid_config", `${option} is required`);
   }
   return value;
 }
@@ -168,6 +231,9 @@ function usage(): string {
   return [
     "Usage: data-reconciler compare --config <job.json|job.mjs> [options]",
     "       data-reconciler reconcile [options]",
+    "       data-reconciler plan --config <job> --run <id>",
+    "       data-reconciler show-plan --digest <sha256>",
+    "       data-reconciler accept --config <job> --digest <sha256> --all --fields <names> --max-operations <n> --max-records <n>",
     "       data-reconciler inspect|backup|export --store <path> [--to <backup>] [--run <id>]",
     "",
     "Options:",
