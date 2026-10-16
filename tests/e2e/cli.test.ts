@@ -116,7 +116,7 @@ describe("compiled CLI", () => {
     expect(resumedState.checkpoints).toEqual(firstState.checkpoints);
     expect(await readFile(scenario.source)).toEqual(sourceBefore);
     expect(await readFile(scenario.target)).toEqual(targetBefore);
-  });
+  }, 60_000);
 
   it("rejects repair writes before creating a store or touching inputs", async () => {
     const scenario = await createScenario();

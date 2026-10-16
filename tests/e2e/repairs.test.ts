@@ -129,7 +129,7 @@ it("keeps every ambiguous identity out of compiled repair dispatch", async () =>
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-});
+}, 60_000);
 
 it.each(["before", "after"] as const)(
   "recovers a forced %s-write process termination with no duplicate effects",
@@ -287,4 +287,5 @@ it.each(["before", "after"] as const)(
       await rm(directory, { recursive: true, force: true });
     }
   },
+  60_000,
 );

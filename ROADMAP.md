@@ -29,6 +29,9 @@ this follow-up. Verify both CI workflows on the final pushed revision.
       and push `fix(repairs): preserve uncertainty across recovery attempts`.
 - [x] Reject run-ID collisions without changing existing runs or reports. Commit
       and push `fix(storage): preserve runs when IDs collide`.
+- [x] Give multi-process scenarios an explicit bounded timeout after Windows CI
+      measured six to eight seconds against Vitest's five-second default. Commit
+      and push `test(e2e): allow bounded Windows process workflows`.
 - [ ] Return the original immutable acceptance for identical approval retries.
       Commit and push `fix(plans): make identical approval retries idempotent`.
 - [ ] Repeat seeded, performance, and installed-workflow verification; record

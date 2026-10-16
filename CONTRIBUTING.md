@@ -50,6 +50,11 @@ A packed consumer compiles independently, then runs without runtime development
 dependencies from an unrelated directory. It checks bundled assets, source maps,
 the documented example, backup, replay, and audit.
 
+Multi-process comparison and repair scenarios allow 60 seconds in total, with
+individual subprocesses still limited to 10 or 30 seconds. Windows CI measured
+six to eight seconds for valid workflows, exceeding Vitest's five-second
+default. The packed-install rehearsal has a separate 180-second budget.
+
 CI runs this command on Linux and Windows. A local Windows pass is not evidence
 of a Linux pass. The root TypeScript self-import alias checks bundled examples
 before a build; the external consumer has no alias or access to repository
