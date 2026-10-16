@@ -10,6 +10,9 @@
   after rejection.
 - Include the contributor guide and roadmap in the tarball, with
   installed-package checks for relative documentation links.
+- Add a runnable normalization guide covering projected fields, identity rules,
+  ignored values, unordered arrays, and untouched source evidence. Verify the
+  example through the installed CLI and public library exports.
 
 - Block repairs for every identity claimed by ambiguous current revisions,
   including operations in reports and accepted plans saved before the fix.

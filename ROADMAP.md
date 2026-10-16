@@ -76,7 +76,7 @@ the final revision. Keep registry publication separate.
 - [x] Include linked project documentation in the tarball and verify relative
       links from the installed package. Commit and push
       `fix(package): include linked project documentation`.
-- [ ] Add a worked normalization guide for projected records and verify its
+- [x] Add a worked normalization guide for projected records and verify its
       identity, field, ignore, array, and evidence behavior through public
       exports. Commit and push
       `docs: demonstrate normalization of projected records`.

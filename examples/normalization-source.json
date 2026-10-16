@@ -1,0 +1,13 @@
+[
+  {
+    "id": "warehouse-1",
+    "changedAt": "2026-01-02T00:00:00Z",
+    "sku": " shirt-01 ",
+    "product": {
+      "name": "  Ｂｌｕｅ Shirt  ",
+      "tags": [" sale ", "blue"],
+      "stock": 12
+    },
+    "trace": "source-only note"
+  }
+]

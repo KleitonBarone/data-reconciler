@@ -128,8 +128,8 @@ especially options that could misleadingly narrow or retarget an apply.
 Detailed workflows:
 
 - [Adapter contracts](adapters.md)
-- [Normalization and ownership](repairs.md)
-- [Plan review, writes, and recovery](repairs.md)
+- [Normalization policies](normalization.md)
+- [Plan review, ownership, writes, and recovery](repairs.md)
 - [Replay and evidence retention](replay.md)
 - [Backup, rescan, and upgrades](recovery.md)
 - [Runtime limits and streamed reports](runtime.md)

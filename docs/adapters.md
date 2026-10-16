@@ -26,6 +26,10 @@ JSON fields, original evidence, optional tombstone, and optional opaque
 the token. Evidence includes format, locator, and the complete original payload.
 Do not put access tokens or credentials in evidence or descriptors.
 
+Normalization selectors address the projected comparable fields. See the
+[worked normalization example](normalization.md) for mappings between unrelated
+provider schemas, identity rules, and evidence preservation.
+
 Reads must have no write side effects. Honor cancellation. The engine bounds
 waiting for non-cooperative adapters, but cannot undo provider calls already
 sent. Translate classified transient failures to `RetryableAdapterError` with an

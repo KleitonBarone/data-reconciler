@@ -214,6 +214,79 @@ it("installs a release candidate and rehearses the complete workflow without rep
           cli([...args, "--format", "json"], expected).stdout,
         ) as unknown,
       );
+    const normalizationConfig = join(
+      packageRoot,
+      "examples/normalization.json",
+    );
+    const normalizedSummary = {
+      total: 1,
+      equal: 1,
+      missing: 0,
+      changed: 0,
+      conflicting: 0,
+    };
+    expect(
+      JSON.parse(
+        node([join(runtime, "documented.js"), normalizationConfig]).stdout,
+      ) as unknown,
+    ).toEqual(normalizedSummary);
+    const normalized = json([
+      "compare",
+      "--config",
+      normalizationConfig,
+      "--store",
+      join(runtime, "normalization.sqlite"),
+    ]);
+    expect(normalized.summary).toEqual(normalizedSummary);
+    const comparable = {
+      name: "Blue Shirt",
+      stock: 12,
+      tags: ["blue", "sale"],
+    };
+    expect(normalized.results).toEqual([
+      expect.objectContaining({
+        classification: "equal",
+        identityKey: "sku:SHIRT-01",
+        source: [
+          expect.objectContaining({
+            comparable,
+            evidence: {
+              format: "application/json",
+              locator: "record:0",
+              payload: {
+                id: "warehouse-1",
+                changedAt: "2026-01-02T00:00:00Z",
+                sku: " shirt-01 ",
+                product: {
+                  name: "  Ｂｌｕｅ Shirt  ",
+                  tags: [" sale ", "blue"],
+                  stock: 12,
+                },
+                trace: "source-only note",
+              },
+            },
+          }),
+        ],
+        target: [
+          expect.objectContaining({
+            comparable,
+            evidence: {
+              format: "application/json",
+              locator: "record:0",
+              payload: {
+                key: "shop-1",
+                modified: "2026-01-01T00:00:00Z",
+                code: "SHIRT-01",
+                title: "Blue Shirt",
+                labels: ["blue", "sale"],
+                quantity: 12,
+                trace: "target-only note",
+              },
+            },
+          }),
+        ],
+      }),
+    ]);
     expect(cli(["--version"]).stdout.trim()).toBe("1.0.0-rc.1");
     expect(json(["schema", "--kind", "report"]).$schema).toBe(
       "https://json-schema.org/draft/2020-12/schema",

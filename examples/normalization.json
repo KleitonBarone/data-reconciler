@@ -1,0 +1,45 @@
+{
+  "id": "normalization-demo",
+  "source": {
+    "id": "warehouse",
+    "type": "json",
+    "path": "normalization-source.json",
+    "schemaVersion": "warehouse.v1",
+    "projection": {
+      "id": "/id",
+      "updatedAt": "/changedAt",
+      "identity": { "kind": "sku", "paths": ["/sku"] },
+      "fields": {
+        "name": "/product/name",
+        "tags": "/product/tags",
+        "stock": "/product/stock",
+        "syncNote": "/trace"
+      }
+    }
+  },
+  "target": {
+    "id": "shop",
+    "type": "json",
+    "path": "normalization-target.json",
+    "schemaVersion": "shop.v1",
+    "projection": {
+      "id": "/key",
+      "updatedAt": "/modified",
+      "identity": { "kind": "sku", "paths": ["/code"] },
+      "fields": {
+        "name": "/title",
+        "tags": "/labels",
+        "stock": "/quantity",
+        "syncNote": "/trace"
+      }
+    }
+  },
+  "normalization": {
+    "version": "inventory-normalization.v1",
+    "text": { "trim": true },
+    "identities": { "sku": { "trim": true, "case": "upper" } },
+    "fields": { "/name": { "trim": true, "unicode": true } },
+    "ignore": ["/syncNote"],
+    "unorderedArrays": ["/tags"]
+  }
+}

@@ -1,0 +1,11 @@
+[
+  {
+    "key": "shop-1",
+    "modified": "2026-01-01T00:00:00Z",
+    "code": "SHIRT-01",
+    "title": "Blue Shirt",
+    "labels": ["blue", "sale"],
+    "quantity": 12,
+    "trace": "target-only note"
+  }
+]
