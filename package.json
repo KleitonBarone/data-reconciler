@@ -15,6 +15,15 @@
   "bin": {
     "data-reconciler": "./dist/cli.js"
   },
+  "files": [
+    "dist",
+    "src",
+    "fixtures",
+    "examples",
+    "docs",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "benchmark": "tsx tests/benchmark.ts",
     "example:worker": "tsx src/examples/worker.ts",
