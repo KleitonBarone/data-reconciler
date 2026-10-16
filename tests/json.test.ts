@@ -2,6 +2,26 @@ import { describe, expect, it } from "vitest";
 import { assertJson, canonicalJson, compareText } from "../src/core/json.js";
 
 describe("JSON boundaries", () => {
+  it("rejects array accessors and properties that JSON persistence would discard", () => {
+    let called = false;
+    const accessor = Object.defineProperty([], "0", {
+      enumerable: true,
+      get() {
+        called = true;
+        return 1;
+      },
+    });
+    const extra = Object.assign([1], { extra: "lost" });
+    const symbol = Object.assign([1], { [Symbol("hidden")]: "lost" });
+    const serializer = Object.assign([1], {
+      toJSON() {
+        return ["replacement"];
+      },
+    });
+    for (const value of [accessor, extra, symbol, serializer])
+      expect(() => assertJson(value)).toThrow();
+    expect(called).toBe(false);
+  });
   it.each([
     undefined,
     Number.NaN,

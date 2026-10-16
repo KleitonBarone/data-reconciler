@@ -24,6 +24,20 @@ function snapshot(
   });
 }
 describe("record revisions", () => {
+  it("chooses repeated-delivery evidence independently of arrival order", () => {
+    const original = snapshot(1);
+    const first = {
+      ...original,
+      evidence: { ...original.evidence, locator: "one" },
+    };
+    const second = {
+      ...original,
+      evidence: { ...original.evidence, locator: "two" },
+    };
+    expect(mergeObservations([], [first, second])).toEqual(
+      mergeObservations([], [second, first]),
+    );
+  });
   const seedCount = Number(process.env.RECONCILER_TEST_SEEDS ?? 16);
   if (!Number.isSafeInteger(seedCount) || seedCount < 1 || seedCount > 1000)
     throw new Error("Invalid generated scenario seed count");

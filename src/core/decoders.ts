@@ -24,6 +24,8 @@ export function snapshotValue(value: unknown): RecordSnapshot {
   if (raw.identityKey !== null && typeof raw.identityKey !== "string")
     throw new Error("Invalid normalized identity");
   const conflicts = raw.revisionConflicts;
+  if (raw.deleted !== undefined && typeof raw.deleted !== "boolean")
+    throw new Error("Invalid stored deletion marker");
   if (conflicts !== undefined && !Array.isArray(conflicts))
     throw new Error("Invalid stored revisions");
   return {
@@ -163,7 +165,7 @@ export function runValue(value: unknown): RunSummary {
           },
         }),
     runId: stringValue(raw.runId),
-    generatedAt: stringValue(raw.generatedAt),
+    generatedAt: parseTimestamp(stringValue(raw.generatedAt)),
     normalizationVersion: stringValue(raw.normalizationVersion),
     adapters: {
       source: descriptorValue(adapters.source),

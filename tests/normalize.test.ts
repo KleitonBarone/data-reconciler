@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AdapterRecord } from "../src/contracts/adapter.js";
 import { normalizeRecord } from "../src/core/normalize.js";
+import { classifyRecords } from "../src/core/classify.js";
 
 const adapter = {
   id: "test",
@@ -21,6 +22,21 @@ function record(comparable: AdapterRecord["comparable"]): AdapterRecord {
 }
 
 describe("normalization", () => {
+  it("does not treat prototype properties as present fields", () => {
+    const source = normalizeRecord(
+      "source",
+      adapter,
+      record({ constructor: "a", toString: "b" }),
+    );
+    const target = normalizeRecord("target", adapter, record({}));
+    const result = classifyRecords([source], [target])[0];
+    if (result?.classification !== "conflicting")
+      throw new Error("Expected a conflict with field evidence");
+    expect(result.differences.map((diff) => diff.target)).toEqual([
+      { present: false },
+      { present: false },
+    ]);
+  });
   it("keeps arbitrary identifiers case-sensitive and escapes compound keys", () => {
     const first = normalizeRecord(
       "source",

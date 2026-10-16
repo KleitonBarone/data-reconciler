@@ -34,8 +34,14 @@ export function mergeObservations(
         const previous = variants.get(signature);
         if (
           previous === undefined ||
-          canonicalJson(snapshot.evidence.payload) <
-            canonicalJson(previous.evidence.payload)
+          canonicalJson({
+            ...snapshot.evidence,
+            revision: snapshot.revision ?? null,
+          }) <
+            canonicalJson({
+              ...previous.evidence,
+              revision: previous.revision ?? null,
+            })
         )
           variants.set(signature, snapshot);
       }

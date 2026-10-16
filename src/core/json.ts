@@ -33,10 +33,28 @@ export function assertJson(
   }
   ancestors.add(value);
   if (Array.isArray(value)) {
+    for (const key of Reflect.ownKeys(value)) {
+      if (key === "length") continue;
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (
+        typeof key !== "string" ||
+        !/^(0|[1-9]\d*)$/u.test(key) ||
+        Number(key) >= value.length ||
+        descriptor === undefined ||
+        !descriptor.enumerable ||
+        !("value" in descriptor)
+      )
+        throw new Error(
+          `${label} must contain only indexed JSON data properties`,
+        );
+    }
     for (let index = 0; index < value.length; index++) {
       if (!Object.hasOwn(value, index))
         throw new Error(`${label} cannot contain sparse arrays`);
-      const item: unknown = value[index];
+      const item: unknown = Object.getOwnPropertyDescriptor(
+        value,
+        String(index),
+      )?.value;
       assertJson(item, `${label}[${index}]`, ancestors, depth + 1);
     }
   } else {

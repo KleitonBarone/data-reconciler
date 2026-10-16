@@ -177,8 +177,8 @@ function compareValues(
     ].sort();
     return keys.flatMap((key) =>
       compareValues(
-        source[key],
-        target[key],
+        Object.hasOwn(source, key) ? source[key] : undefined,
+        Object.hasOwn(target, key) ? target[key] : undefined,
         path === "" ? key : `${path}.${key}`,
       ),
     );
