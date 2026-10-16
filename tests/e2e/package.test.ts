@@ -58,6 +58,10 @@ it("installs a release candidate and rehearses the complete workflow without rep
   await mkdir(consumer);
   await mkdir(runtime);
   try {
+    // Windows runners keep the checkout and temporary consumers on different drives.
+    const storeDirectory = dirname(
+      pnpm(["store", "path"], resolve(".")).stdout.trim(),
+    );
     pnpm(["pack", "--pack-destination", directory], resolve("."));
     const tarball = (await readdir(directory)).find((file) =>
       file.endsWith(".tgz"),
@@ -114,8 +118,27 @@ it("installs a release candidate and rehearses the complete workflow without rep
         "}",
       ].join("\n"),
     );
-    pnpm(["install", "--ignore-scripts", "--offline"], consumer);
-    pnpm(["install", "--prod", "--ignore-scripts", "--offline"], runtime);
+    pnpm(
+      [
+        "install",
+        "--ignore-scripts",
+        "--offline",
+        "--store-dir",
+        storeDirectory,
+      ],
+      consumer,
+    );
+    pnpm(
+      [
+        "install",
+        "--prod",
+        "--ignore-scripts",
+        "--offline",
+        "--store-dir",
+        storeDirectory,
+      ],
+      runtime,
+    );
     const packageRoot = join(runtime, "node_modules/data-reconciler");
     await copyFile(
       join(packageRoot, "examples/consumer.ts"),
