@@ -59,6 +59,11 @@ export function receiptValue(value: unknown): WriteReceipt {
 
 /** Runtime boundary for trusted JavaScript job modules. No writer is inferred. */
 export function writerValue(value: unknown): RepairWriter {
+  if (typeof value !== "object" || value === null)
+    throw new ReconciliationError(
+      "unsafe_write",
+      "Target is comparison-only; an explicit writer is required",
+    );
   const raw = objectValue(value, "writer");
   const capabilities = objectValue(raw.capabilities, "writer capabilities");
   if (

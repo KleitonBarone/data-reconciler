@@ -13,6 +13,7 @@ import { snapshotValue, reportValue, decode } from "../core/decoders.js";
 import { checkpointValue } from "../core/validation.js";
 import { closeSync, openSync } from "node:fs";
 import { migratePlans, SqlitePlanStore } from "./plan-store.js";
+import { migrateRepairs, SqliteRepairStore } from "./repair-store.js";
 
 export type CommitFaultHooks = {
   /** Tests use this to prove that SQLite rolls back before checkpoints advance. */
@@ -50,7 +51,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
           "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
         )
         .all();
-      if (typeof version !== "number" || version > 2)
+      if (typeof version !== "number" || version > 3)
         throw new ReconciliationError(
           "incompatible_state",
           "Unsupported SQLite schema version",
@@ -119,6 +120,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
       );
       migrateRuns(this.database);
       migratePlans(this.database);
+      migrateRepairs(this.database);
       this.database.exec("COMMIT");
       migrating = false;
     } catch (error) {
@@ -335,6 +337,7 @@ export class SqliteReconciliationStore implements ReconciliationStore {
     return {
       durable: new SqliteRunStore(this.database, jobId),
       plans: this.plans,
+      repairs: this.repairs,
       getCheckpoint: (id) => this.getCheckpoint(id, jobId),
       loadObservations: (id, side) => this.loadObservations(id, side, jobId),
       commitRun: (input, hooks) => this.commitRun(input, hooks, jobId),
@@ -348,6 +351,9 @@ export class SqliteReconciliationStore implements ReconciliationStore {
   }
   get plans() {
     return new SqlitePlanStore(this.database);
+  }
+  get repairs() {
+    return new SqliteRepairStore(this.database);
   }
 
   inspect() {

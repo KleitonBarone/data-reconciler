@@ -30,7 +30,7 @@ it("migrates original state without rewriting historical report bytes", () => {
   const store = new SqliteReconciliationStore(path);
   try {
     expect(store.getCheckpoint("old")?.cursor).toBe("12");
-    expect(store.inspect().schemaVersion).toBe(2);
+    expect(store.inspect().schemaVersion).toBe(3);
     expect(() => store.getReport("old")).toThrow("Unsupported report version");
   } finally {
     store.close();

@@ -52,3 +52,44 @@ Declarative config uses
 empty disposable target. Never point it at application data. It checks
 create/update, stale revisions, changed deduplication requests, read-back, and
 repeat application without further effects.
+
+## Execute and resume
+
+```sh
+pnpm dev apply --config job.json --digest DIGEST --dry-run
+pnpm dev apply --config job.json --digest DIGEST
+pnpm dev audit --digest DIGEST
+```
+
+Only the explicit `apply` command can dispatch repairs. The first command above
+validates acceptance without recording intent or changing the target. Omitting
+`--dry-run` in the explicit apply command executes the selected operations.
+Comparison commands reject the old `--apply` flag.
+
+Each operation first commits intent, checks the target's durable deduplication
+receipt, then sends a revision-conditional write if needed. Updates change only
+the approved fields and preserve raw target-owned values. A create requires the
+target generation to match and rejects intervening writes from outside its plan.
+Repairs do not infer record deletion. Repairs skip nested fields containing
+ignored data instead of dropping the ignored values during replacement.
+
+Failures after sending a write become `unknown` unless a rejected precondition
+proves no change occurred. Restart the same command and digest to recover
+through the original deduplication keys. Successful operations are skipped. A
+changed target revision stops execution for review; do not edit the plan to
+bypass it. Compare and review again. Transient retries use the job's bounded
+runtime policy. Cancellation is supported between operations and during adapter
+waits.
+
+Apply records partial summaries and appends immutable intent/outcome history.
+After execution it compares again and links that verification run to the plan.
+Unresolved conflicts and target-owned differences remain visible. An interrupted
+verification does not undo completed writes. Apply again to finish verification.
+Expired authorization cannot resume writes; perform a fresh comparison and
+approval. A repeated successful apply produces zero additional target effects.
+
+Compiled CLI tests kill processes before dispatch and after target commit but
+before acknowledgement/audit recording. Both recover with exactly one target
+effect per operation. This is durable deduplication, not an exactly-once
+delivery claim. Custom writers must retain deduplication receipts for at least
+as long as plans may be resumed or replayed.

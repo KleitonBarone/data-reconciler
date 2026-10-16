@@ -14,8 +14,12 @@ import { ReconciliationError } from "./core/errors.js";
 import { reportChunks } from "./reporters/export.js";
 import { once } from "node:events";
 import { createPlan, acceptPlan } from "./core/plans.js";
+import { applyPlan, validateAcceptedPlan } from "./core/repairs.js";
 
 async function main(): Promise<void> {
+  const controller = new AbortController();
+  process.once("SIGINT", () => controller.abort());
+  process.once("SIGTERM", () => controller.abort());
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     strict: true,
@@ -32,7 +36,8 @@ async function main(): Promise<void> {
       fields: { type: "string" },
       "max-operations": { type: "string" },
       "max-records": { type: "string" },
-      "dry-run": { type: "boolean", default: true },
+      progress: { type: "boolean", default: false },
+      "dry-run": { type: "boolean" },
       format: { type: "string", default: "human" },
       help: { type: "boolean", short: "h", default: false },
       "page-size": { type: "string", default: "100" },
@@ -44,6 +49,45 @@ async function main(): Promise<void> {
 
   if (values.help || positionals.length === 0) {
     process.stdout.write(`${usage()}\n`);
+    return;
+  }
+  if (values.apply)
+    throw new ReconciliationError(
+      "unsafe_write",
+      "Comparison commands never apply repairs. Use the apply command with an accepted digest.",
+    );
+  if (positionals[0] === "apply") {
+    const job = await loadJob(required(values.config, "--config"));
+    const digest = required(values.digest, "--digest");
+    const store = new SqliteReconciliationStore(
+      resolve(required(values.store, "--store")),
+    );
+    try {
+      if (values["dry-run"]) {
+        const { acceptance } = validateAcceptedPlan(job, store, digest);
+        process.stdout.write(
+          `${JSON.stringify({ mode: "dry-run", digest, operations: acceptance.operationIds.length })}\n`,
+        );
+      } else {
+        const summary = await applyPlan(job, {
+          store,
+          digest,
+          signal: controller.signal,
+          ...(values.progress
+            ? {
+                onEvent: (event: import("./core/job.js").RunEvent) =>
+                  process.stderr.write(`${JSON.stringify(event)}\n`),
+              }
+            : {}),
+        });
+        process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+        if (summary.cancelled) process.exitCode = 130;
+        else if (summary.failed + summary.unknown + summary.pending > 0)
+          process.exitCode = 1;
+      }
+    } finally {
+      store.close();
+    }
     return;
   }
   if (["plan", "show-plan", "accept"].includes(positionals[0] ?? "")) {
@@ -102,14 +146,30 @@ async function main(): Promise<void> {
     }
     return;
   }
-  if (["inspect", "backup", "export"].includes(positionals[0] ?? "")) {
+  if (["inspect", "backup", "export", "audit"].includes(positionals[0] ?? "")) {
     if (positionals.length !== 1)
       throw new ReconciliationError("invalid_config", "Expected one command");
     const store = new SqliteReconciliationStore(
       resolve(required(values.store, "--store")),
     );
     try {
-      if (positionals[0] === "inspect")
+      if (positionals[0] === "audit") {
+        const digest = required(values.digest, "--digest");
+        process.stdout.write(
+          `${JSON.stringify({ digest, verifications: store.repairs.verifications(digest), attempts: store.repairs.summaries(digest) }).slice(0, -1)},"history":[`,
+        );
+        let first = true;
+        for (const outcome of store.repairs.history(digest)) {
+          if (
+            !process.stdout.write(
+              `${first ? "" : ","}${JSON.stringify(outcome)}`,
+            )
+          )
+            await once(process.stdout, "drain");
+          first = false;
+        }
+        process.stdout.write("]}\n");
+      } else if (positionals[0] === "inspect")
         process.stdout.write(`${JSON.stringify(store.inspect(), null, 2)}\n`);
       else if (positionals[0] === "backup") {
         const destination = resolve(required(values.to, "--to"));
@@ -136,11 +196,6 @@ async function main(): Promise<void> {
     !["reconcile", "compare"].includes(positionals[0] ?? "")
   ) {
     throw new Error(`Unknown command.\n\n${usage()}`);
-  }
-  if (values.apply || !values["dry-run"]) {
-    throw new Error(
-      "Repair writes are not implemented. This command only supports dry runs.",
-    );
   }
   if (
     values.format !== "human" &&
@@ -175,7 +230,16 @@ async function main(): Promise<void> {
   const store = new SqliteReconciliationStore(storePath);
   try {
     if (job !== null) {
-      const report = await compare(job, { store });
+      const report = await compare(job, {
+        store,
+        signal: controller.signal,
+        ...(values.progress
+          ? {
+              onEvent: (event: import("./core/job.js").RunEvent) =>
+                process.stderr.write(`${JSON.stringify(event)}\n`),
+            }
+          : {}),
+      });
       if (values.format === "human")
         process.stdout.write(
           `${formatTerminalReport({ ...report, results: store.durable.results(report.runId) })}\n`,
@@ -234,6 +298,8 @@ function usage(): string {
     "       data-reconciler plan --config <job> --run <id>",
     "       data-reconciler show-plan --digest <sha256>",
     "       data-reconciler accept --config <job> --digest <sha256> --all --fields <names> --max-operations <n> --max-records <n>",
+    "       data-reconciler apply --config <job> --digest <sha256> [--dry-run]",
+    "       data-reconciler audit --digest <sha256>",
     "       data-reconciler inspect|backup|export --store <path> [--to <backup>] [--run <id>]",
     "",
     "Options:",
@@ -245,8 +311,9 @@ function usage(): string {
     "  --store <path>      SQLite state and report store",
     "  --page-size <count> Incremental read page size",
     "  --format <format>   human, json, or ndjson",
-    "  --dry-run           accepted for clarity; already enforced",
-    "  --apply             rejected; repair writes do not exist",
+    "  --dry-run           compare is always dry; apply only validates when set",
+    "  --progress          correlated JSON diagnostics on stderr",
+    "  --apply             rejected; use the explicit apply command",
   ].join("\n");
 }
 

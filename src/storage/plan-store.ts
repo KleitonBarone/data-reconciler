@@ -15,7 +15,7 @@ import { ReconciliationError } from "../core/errors.js";
 export function migratePlans(db: DatabaseSync): void {
   db.exec(`CREATE TABLE IF NOT EXISTS repair_plans (digest TEXT PRIMARY KEY, job_id TEXT NOT NULL, run_id TEXT NOT NULL REFERENCES run_state(run_id), plan_json TEXT NOT NULL) STRICT;
     CREATE TABLE IF NOT EXISTS plan_acceptances (digest TEXT PRIMARY KEY REFERENCES repair_plans(digest), acceptance_json TEXT NOT NULL) STRICT;
-    PRAGMA user_version = 2;`);
+    `);
 }
 
 export class SqlitePlanStore implements PlanStore {

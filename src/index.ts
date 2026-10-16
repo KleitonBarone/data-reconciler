@@ -21,3 +21,4 @@ export * from "./core/ownership.js";
 export * from "./core/plans.js";
 export * from "./contracts/writer.js";
 export * from "./adapters/sqlite-record-adapter.js";
+export * from "./core/repairs.js";

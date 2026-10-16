@@ -127,7 +127,7 @@ describe("compiled CLI", () => {
     const result = runCli(scenario, "--apply");
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("Repair writes are not implemented");
+    expect(result.stderr).toContain("Comparison commands never apply repairs");
     expect(await readdir(scenario.directory)).toEqual(filesBefore);
     expect(await readFile(scenario.source)).toEqual(sourceBefore);
     expect(await readFile(scenario.target)).toEqual(targetBefore);

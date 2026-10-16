@@ -249,22 +249,22 @@ Depends on E. Test only against disposable writable targets.
       capabilities. Read-only adapters stay valid. Implement a writable local
       target that can prove these guarantees before supporting any external
       writer.
-- [ ] F2. Require explicit apply of an accepted plan digest. Re-read or check
+- [x] F2. Require explicit apply of an accepted plan digest. Re-read or check
       the target revision atomically with the write. Drift since planning
       invalidates the operation; never silently overwrite it. Recheck bounds and
       versions.
-- [ ] F3. Durably record intent before sending a write, then record the outcome.
+- [x] F3. Durably record intent before sending a write, then record the outcome.
       Use per-operation deduplication keys at the target boundary. Distinguish
       pending, succeeded, skipped, failed, and unknown outcomes.
-- [ ] F4. Handle a write that succeeds before its acknowledgement or local audit
+- [x] F4. Handle a write that succeeds before its acknowledgement or local audit
       commit. Recover by adapter deduplication or verifiable read-back. If
       neither can prove the result, stop that operation for review; do not claim
       exactly-once delivery or retry an unsafe write.
-- [ ] F5. Resume unfinished plans without repeating completed effects. Support
+- [x] F5. Resume unfinished plans without repeating completed effects. Support
       cancellation between operations, bounded retry of classified transient
       failures, and a durable summary of partial success. Never advance past an
       operation whose intent or outcome has not been recorded.
-- [ ] F6. Compare again after apply and link the verification run to the plan.
+- [x] F6. Compare again after apply and link the verification run to the plan.
       Report unresolved conflicts and target-side changes without resolving them
       implicitly.
 

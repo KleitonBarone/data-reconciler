@@ -31,6 +31,8 @@ export type RunEvent = {
     | "difference"
     | "conflict"
     | "retry"
+    | "repair_intent"
+    | "repair_outcome"
     | "run_completed"
     | "run_failed";
   readonly jobId: string;
@@ -38,6 +40,7 @@ export type RunEvent = {
   readonly side?: "source" | "target";
   readonly records?: number;
   readonly attempt?: number;
+  readonly operationId?: string;
 };
 export type CompareOptions = {
   readonly store: ReconciliationStore;

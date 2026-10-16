@@ -290,7 +290,7 @@ describe("dry-run reconciliation", () => {
       { cwd: resolve("."), encoding: "utf8" },
     );
     expect(cli.status).toBe(1);
-    expect(cli.stderr).toContain("Repair writes are not implemented");
+    expect(cli.stderr).toContain("Comparison commands never apply repairs");
   });
 });
 

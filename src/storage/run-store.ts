@@ -13,7 +13,7 @@ import { mergeObservations } from "../core/revisions.js";
 
 export function migrateRuns(db: DatabaseSync): void {
   const version = db.prepare("PRAGMA user_version").get()?.user_version;
-  if (typeof version !== "number" || version > 2)
+  if (typeof version !== "number" || version > 3)
     throw new ReconciliationError(
       "incompatible_state",
       "Unsupported SQLite schema version",
