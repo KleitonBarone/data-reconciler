@@ -68,7 +68,7 @@ the final revision. Keep registry publication separate.
 - [x] Validate normalization policies in library jobs before any adapter reads.
       Commit and push
       `fix(core): validate normalization before reading adapters`.
-- [ ] Reject fresh-key creates against existing records in writer conformance,
+- [x] Reject fresh-key creates against existing records in writer conformance,
       and check unchanged records and absent receipts after rejection. Commit
       and push `fix(adapters): reject unsafe creates in writer conformance`.
 - [ ] Include linked project documentation in the tarball and verify relative

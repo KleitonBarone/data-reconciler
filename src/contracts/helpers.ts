@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok } from "node:assert/strict";
+import { deepStrictEqual, ok, rejects } from "node:assert/strict";
 import type {
   AdapterDescriptor,
   AdapterRecord,
@@ -111,6 +111,36 @@ export async function verifyRepairWriter(adapter: ReadAdapter): Promise<void> {
   };
   const changed = await writer.apply(update);
   ok(changed.revision !== receipt.revision);
+  // An outdated checkpoint must not mask a missing create precondition.
+  let checkpoint = page.nextCheckpoint;
+  for (let pages = 0; ; pages++) {
+    ok(pages < 10000, "Writer conformance exceeded its read page limit");
+    const current = await adapter.readPage({ checkpoint, limit: 2 });
+    checkpoint = current.nextCheckpoint;
+    if (!current.hasMore) break;
+  }
+  const beforeRejectedCreate = await writer.getCurrent(create.recordId);
+  const occupiedCreate: RepairWrite = {
+    ...create,
+    deduplicationKey: "conformance:occupied",
+    expectedCheckpoint: checkpoint,
+    comparable: { stock: 99 },
+  };
+  await rejects(
+    () => writer.apply(occupiedCreate),
+    { code: "stale_plan" },
+    "Writer must reject a fresh-key create for an existing record",
+  );
+  deepStrictEqual(
+    await writer.getCurrent(create.recordId),
+    beforeRejectedCreate,
+    "A rejected create must leave the existing record unchanged",
+  );
+  deepStrictEqual(
+    await writer.lookup(occupiedCreate.deduplicationKey),
+    null,
+    "A rejected create must not produce a success receipt",
+  );
   let rejected = 0;
   for (const unsafe of [
     { ...update, deduplicationKey: "conformance:stale" },

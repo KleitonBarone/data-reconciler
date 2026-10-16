@@ -5,6 +5,9 @@
 - Validate normalization policies in library jobs before adapter reads,
   including empty datasets. Invalid versions and selectors return
   `invalid_config` without creating an unreadable completed report.
+- Extend writer conformance to reject fresh-key creates against existing records
+  using a current checkpoint, and verify unchanged state and no success receipt
+  after rejection.
 
 - Block repairs for every identity claimed by ambiguous current revisions,
   including operations in reports and accepted plans saved before the fix.

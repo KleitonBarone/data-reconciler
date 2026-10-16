@@ -78,6 +78,13 @@ empty disposable target. It checks conditional create/update, read-back,
 deduplication, changed-key rejection, and stale-revision rejection. Run separate
 lost-acknowledgement and process-crash tests around your provider's boundary.
 
+The conditional-create check uses a fresh deduplication key and a completed
+current checkpoint against the record created by the check. It requires
+`stale_plan`, the existing record to remain unchanged, and no success receipt
+for the rejected key. Repeating a successful create with its original key is
+checked separately. Provider-specific race tests are still required to prove
+that absence checks and writes are atomic.
+
 The bundled `SqliteRecordAdapter` is the reference local writer. Initialize it
 explicitly with `initializeSqliteTarget`; constructors and reads never create or
 mutate its database. Custom external writers need their own authorized sandbox
